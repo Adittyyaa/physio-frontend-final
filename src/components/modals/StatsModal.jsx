@@ -1,0 +1,43 @@
+import React from 'react'
+import { FiBarChart2 } from 'react-icons/fi'
+import { Modal } from '../ui/Modal'
+import { Button, StatCard } from '../ui'
+import { useAppStore } from '../../store/appStore'
+import { today } from '../../lib/utils'
+
+export function StatsModal({ open, onClose }) {
+  const patients = useAppStore((s) => s.patients)
+  const appointments = useAppStore((s) => s.appointments)
+  const sessions = useAppStore((s) => s.sessions)
+
+  const t = today()
+  const todayAppts = appointments.filter((a) => a.date === t).length
+  const completedAppts = appointments.filter((a) => a.status === 'completed').length
+  const activePatients = patients.filter((p) => p.active !== false).length
+  const avgPain = sessions.length
+    ? (sessions.reduce((s, x) => s + (parseInt(x.pain) || 0), 0) / sessions.length).toFixed(1)
+    : '—'
+
+  return (
+    <Modal open={open} onClose={onClose} title={<div className="flex items-center gap-2"><FiBarChart2 /> Overview</div>}>
+      <div className="grid grid-cols-2 gap-2.5 mb-3.5">
+        <StatCard num={patients.length} label="Total Patients" />
+        <StatCard num={activePatients} label="Active" color="#22c55e" />
+      </div>
+      <div className="grid grid-cols-2 gap-2.5 mb-3.5">
+        <StatCard num={todayAppts} label="Today's Appts" color="#f59e0b" />
+        <StatCard num={sessions.length} label="Sessions Logged" />
+      </div>
+      <div className="grid grid-cols-2 gap-2.5 mb-3.5">
+        <StatCard num={appointments.length} label="Total Bookings" />
+        <StatCard num={completedAppts} label="Completed" />
+      </div>
+      <div className="bg-white rounded-2xl p-3 text-center border border-[#e2e8f0]">
+        <div className="text-[11px] text-[#94a3b8] uppercase tracking-wide mb-1">Average Pain Score</div>
+        <div className="text-[32px] font-bold text-[#0f766e]">{avgPain}</div>
+        <div className="text-xs text-[#94a3b8]">across all sessions</div>
+      </div>
+      <Button variant="outline" full className="mt-2" onClick={onClose}>Close</Button>
+    </Modal>
+  )
+}

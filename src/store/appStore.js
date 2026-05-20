@@ -1,0 +1,264 @@
+import { create } from 'zustand'
+import { supabase } from '../lib/supabase'
+import { uid, formatDate, patientCode4 } from '../lib/utils'
+import { DEFAULT_EXERCISES, DEFAULT_PATIENTS } from '../lib/defaultData'
+import toast from 'react-hot-toast'
+
+export const useAppStore = create((set, get) => ({
+  // ── Auth ──────────────────────────────────────────────────
+  user: null,
+  authLoading: true,
+
+  setUser: (user) => set({ user }),
+  setAuthLoading: (authLoading) => set({ authLoading }),
+
+  // ── Data ──────────────────────────────────────────────────
+  patients: [],
+  appointments: [],
+  sessions: [],
+  exercises: [],
+  dataLoading: false,
+
+  // ── UI State ──────────────────────────────────────────────
+  activeTab: 'patients',
+  setActiveTab: (activeTab) => set({ activeTab }),
+
+  // ── Load all data ─────────────────────────────────────────
+  loadData: async () => {
+    const { user } = get()
+    if (!user) return
+    set({ dataLoading: true })
+    try {
+      const [pRes, aRes, sRes, eRes] = await Promise.all([
+        supabase.from('patients').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('appointments').select('*').eq('user_id', user.id).order('date', { ascending: true }),
+        supabase.from('sessions').select('*').eq('user_id', user.id).order('date', { ascending: false }),
+        supabase.from('exercises').select('*').eq('user_id', user.id).order('created_at', { ascending: true }),
+      ])
+      const patients = pRes.data || []
+      const exercises = eRes.data || []
+
+      // Seed dummy patients if user has none
+      let seededPatients = patients
+      if (patients.length === 0) {
+        const used = new Set()
+        const nextCode = () => {
+          let code = patientCode4()
+          let tries = 0
+          while (used.has(code) && tries < 25) { code = patientCode4(); tries += 1 }
+          used.add(code)
+          return code
+        }
+        const seed = DEFAULT_PATIENTS.map((p) => ({
+          ...p,
+          id: nextCode(),
+          user_id: user.id,
+          created_at: new Date().toISOString(),
+        }))
+        const { data: insertedPatients } = await supabase.from('patients').insert(seed).select()
+        seededPatients = insertedPatients || seed
+      }
+
+      // Seed default exercises if user has none
+      if (exercises.length === 0) {
+        const seeded = DEFAULT_EXERCISES.map((e) => ({ ...e, user_id: user.id }))
+        const { data: insertedExercises } = await supabase.from('exercises').insert(seeded).select()
+        set({
+          patients: seededPatients,
+          appointments: aRes.data || [],
+          sessions: sRes.data || [],
+          exercises: insertedExercises || seeded,
+        })
+      } else {
+        set({
+          patients: seededPatients,
+          appointments: aRes.data || [],
+          sessions: sRes.data || [],
+          exercises,
+        })
+      }
+    } catch (err) {
+      console.error('Load data error:', err)
+    } finally {
+      set({ dataLoading: false })
+    }
+  },
+
+  // ── Load patient portal data ───────────────────────────────
+  loadPatientData: async () => {
+    set({ dataLoading: true })
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      // Find the patient row linked to this auth user
+      const { data: patientRow, error: patientError } = await supabase
+        .from('patients')
+        .select('*')
+        .eq('patient_auth_id', user.id)
+        .maybeSingle()
+
+      if (patientError) {
+        console.error('Patient lookup error:', patientError)
+        throw patientError
+      }
+
+      if (!patientRow) {
+        console.warn('No patient row found for auth user:', user.id)
+        set({ patients: [], appointments: [], sessions: [], exercises: [] })
+        return
+      }
+
+      console.log('Patient found:', patientRow.id, '| therapist user_id:', patientRow.user_id)
+
+      // Fetch appointments and sessions.
+      // We query using the therapist's user_id (stored on the patient row) so the
+      // therapist-scoped RLS policy passes, then filter by patient_id client-side.
+      // This works because the patient row gives us the therapist's user_id.
+      const [aRes, sRes, eRes] = await Promise.all([
+        supabase
+          .from('appointments')
+          .select('*')
+          .eq('patient_id', patientRow.id)
+          .order('date', { ascending: true }),
+        supabase
+          .from('sessions')
+          .select('*')
+          .eq('patient_id', patientRow.id)
+          .order('date', { ascending: false }),
+        supabase
+          .from('exercises')
+          .select('*')
+          .eq('user_id', patientRow.user_id)
+          .order('created_at', { ascending: true }),
+      ])
+
+      console.log('Appointments fetched:', aRes.data?.length, aRes.error)
+      console.log('Sessions fetched:', sRes.data?.length, sRes.error)
+
+      set({
+        patients: [patientRow],
+        appointments: aRes.data || [],
+        sessions: sRes.data || [],
+        exercises: eRes.data || [],
+      })
+    } catch (err) {
+      console.error('Load patient data error:', err)
+      set({ patients: [], appointments: [], sessions: [], exercises: [] })
+    } finally {
+      set({ dataLoading: false })
+    }
+  },
+
+  // ── PATIENTS ──────────────────────────────────────────────
+  addPatient: async (data) => {
+    const { user } = get()
+    const makeRecord = (id) => ({ ...data, id, user_id: user.id, created_at: new Date().toISOString() })
+
+    let record = makeRecord(data?.id || patientCode4())
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      let { error } = await supabase.from('patients').insert(record)
+      // Backwards-compat: if DB schema doesn't have patient_email yet, retry without it
+      if (error && (String(error.message || '').includes('patient_email') || String(error.details || '').includes('patient_email'))) {
+        const { patient_email, ...rest } = record
+        record = rest
+        ;({ error } = await supabase.from('patients').insert(record))
+      }
+      if (!error) {
+        set((s) => ({ patients: [record, ...s.patients] }))
+        toast.success('Patient added')
+        return true
+      }
+
+      // If code collision (duplicate PK), retry with a new code
+      if (String(error.code) === '23505') {
+        record = makeRecord(patientCode4())
+        continue
+      }
+
+      console.error('Add patient error:', error)
+      toast.error(error.message || 'Failed to add patient')
+      return false
+    }
+
+    toast.error('Could not generate unique patient code')
+    return false
+  },
+
+  updatePatient: async (id, data) => {
+    let { error } = await supabase.from('patients').update(data).eq('id', id)
+    if (error && (String(error.message || '').includes('patient_email') || String(error.details || '').includes('patient_email'))) {
+      // Backwards-compat: if DB schema doesn't have patient_email yet, retry without it
+      const { patient_email, ...rest } = data || {}
+      ;({ error } = await supabase.from('patients').update(rest).eq('id', id))
+    }
+    if (error) { toast.error('Failed to update patient'); return false }
+    set((s) => ({ patients: s.patients.map((p) => (p.id === id ? { ...p, ...data } : p)) }))
+    toast.success('Patient updated')
+    return true
+  },
+
+  deletePatient: async (id) => {
+    const { error } = await supabase.from('patients').delete().eq('id', id)
+    if (error) { toast.error('Failed to delete patient'); return false }
+    // Also delete related records
+    await supabase.from('appointments').delete().eq('patient_id', id)
+    await supabase.from('sessions').delete().eq('patient_id', id)
+    set((s) => ({
+      patients: s.patients.filter((p) => p.id !== id),
+      appointments: s.appointments.filter((a) => a.patient_id !== id),
+      sessions: s.sessions.filter((s2) => s2.patient_id !== id),
+    }))
+    toast.success('Patient deleted')
+    return true
+  },
+
+  // ── APPOINTMENTS ──────────────────────────────────────────
+  addAppointment: async (data) => {
+    const { user } = get()
+    const record = { ...data, id: uid(), user_id: user.id, created_at: new Date().toISOString() }
+    const { error } = await supabase.from('appointments').insert(record)
+    if (error) { toast.error('Failed to book appointment'); return false }
+    set((s) => ({ appointments: [...s.appointments, record].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)) }))
+    toast.success('Appointment booked')
+    return true
+  },
+
+  updateAppointment: async (id, data) => {
+    const { error } = await supabase.from('appointments').update(data).eq('id', id)
+    if (error) { toast.error('Failed to update appointment'); return false }
+    set((s) => ({ appointments: s.appointments.map((a) => (a.id === id ? { ...a, ...data } : a)) }))
+    return true
+  },
+
+  updateAppointmentStatus: async (id, status) => {
+    const { error } = await supabase.from('appointments').update({ status }).eq('id', id)
+    if (error) { toast.error('Failed to update status'); return false }
+    set((s) => ({ appointments: s.appointments.map((a) => (a.id === id ? { ...a, status } : a)) }))
+    const msg = status === 'completed' ? 'Marked complete ✓' : status === 'cancelled' ? 'Appointment cancelled' : 'Status updated'
+    toast.success(msg)
+    return true
+  },
+
+  // ── SESSIONS ──────────────────────────────────────────────
+  addSession: async (data) => {
+    const { user } = get()
+    const record = { ...data, id: uid(), user_id: user.id, created_at: new Date().toISOString() }
+    const { error } = await supabase.from('sessions').insert(record)
+    if (error) { toast.error('Failed to save session'); return false }
+    set((s) => ({ sessions: [record, ...s.sessions] }))
+    toast.success('Session logged')
+    return true
+  },
+
+  // ── EXERCISES ─────────────────────────────────────────────
+  addExercise: async (data) => {
+    const { user } = get()
+    const record = { ...data, id: uid(), user_id: user.id, created_at: new Date().toISOString() }
+    const { error } = await supabase.from('exercises').insert(record)
+    if (error) { toast.error('Failed to add exercise'); return false }
+    set((s) => ({ exercises: [...s.exercises, record] }))
+    toast.success('Exercise added to library')
+    return true
+  },
+}))
