@@ -91,7 +91,6 @@ export const useAppStore = create((set, get) => ({
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      // Find the patient row linked to this auth user
       const { data: patientRow, error: patientError } = await supabase
         .from('patients')
         .select('*')
@@ -111,26 +110,10 @@ export const useAppStore = create((set, get) => ({
 
       console.log('Patient found:', patientRow.id, '| therapist user_id:', patientRow.user_id)
 
-      // Fetch appointments and sessions.
-      // We query using the therapist's user_id (stored on the patient row) so the
-      // therapist-scoped RLS policy passes, then filter by patient_id client-side.
-      // This works because the patient row gives us the therapist's user_id.
       const [aRes, sRes, eRes] = await Promise.all([
-        supabase
-          .from('appointments')
-          .select('*')
-          .eq('patient_id', patientRow.id)
-          .order('date', { ascending: true }),
-        supabase
-          .from('sessions')
-          .select('*')
-          .eq('patient_id', patientRow.id)
-          .order('date', { ascending: false }),
-        supabase
-          .from('exercises')
-          .select('*')
-          .eq('user_id', patientRow.user_id)
-          .order('created_at', { ascending: true }),
+        supabase.from('appointments').select('*').eq('patient_id', patientRow.id).order('date', { ascending: true }),
+        supabase.from('sessions').select('*').eq('patient_id', patientRow.id).order('date', { ascending: false }),
+        supabase.from('exercises').select('*').eq('patient_id', patientRow.id).order('created_at', { ascending: true }),
       ])
 
       console.log('Appointments fetched:', aRes.data?.length, aRes.error)
@@ -158,7 +141,6 @@ export const useAppStore = create((set, get) => ({
     let record = makeRecord(data?.id || patientCode4())
     for (let attempt = 0; attempt < 5; attempt += 1) {
       let { error } = await supabase.from('patients').insert(record)
-      // Backwards-compat: if DB schema doesn't have patient_email yet, retry without it
       if (error && (String(error.message || '').includes('patient_email') || String(error.details || '').includes('patient_email'))) {
         const { patient_email, ...rest } = record
         record = rest
@@ -169,18 +151,14 @@ export const useAppStore = create((set, get) => ({
         toast.success('Patient added')
         return true
       }
-
-      // If code collision (duplicate PK), retry with a new code
       if (String(error.code) === '23505') {
         record = makeRecord(patientCode4())
         continue
       }
-
       console.error('Add patient error:', error)
       toast.error(error.message || 'Failed to add patient')
       return false
     }
-
     toast.error('Could not generate unique patient code')
     return false
   },
@@ -188,7 +166,6 @@ export const useAppStore = create((set, get) => ({
   updatePatient: async (id, data) => {
     let { error } = await supabase.from('patients').update(data).eq('id', id)
     if (error && (String(error.message || '').includes('patient_email') || String(error.details || '').includes('patient_email'))) {
-      // Backwards-compat: if DB schema doesn't have patient_email yet, retry without it
       const { patient_email, ...rest } = data || {}
       ;({ error } = await supabase.from('patients').update(rest).eq('id', id))
     }
@@ -201,7 +178,6 @@ export const useAppStore = create((set, get) => ({
   deletePatient: async (id) => {
     const { error } = await supabase.from('patients').delete().eq('id', id)
     if (error) { toast.error('Failed to delete patient'); return false }
-    // Also delete related records
     await supabase.from('appointments').delete().eq('patient_id', id)
     await supabase.from('sessions').delete().eq('patient_id', id)
     set((s) => ({
@@ -259,6 +235,86 @@ export const useAppStore = create((set, get) => ({
     if (error) { toast.error('Failed to add exercise'); return false }
     set((s) => ({ exercises: [...s.exercises, record] }))
     toast.success('Exercise added to library')
+    return true
+  },
+
+  assignExercise: async (exerciseData, patientId) => {
+    const { user } = get()
+    const record = {
+      ...exerciseData,
+      id: uid(),
+      user_id: user.id,
+      patient_id: patientId,
+      created_at: new Date().toISOString(),
+    }
+    const { error } = await supabase.from('exercises').insert(record)
+    if (error) { toast.error('Failed to assign exercise'); return false }
+    set((s) => ({ exercises: [...s.exercises, record] }))
+    toast.success('Exercise assigned to patient')
+    return true
+  },
+
+  removeAssignedExercise: async (id) => {
+    const { error } = await supabase.from('exercises').delete().eq('id', id)
+    if (error) { toast.error('Failed to remove exercise'); return false }
+    set((s) => ({ exercises: s.exercises.filter((e) => e.id !== id) }))
+    toast.success('Exercise removed')
+    return true
+  },
+
+  // ── Patient self-manage exercises ─────────────────────────
+  addPatientExercise: async (exerciseData) => {
+    const { patients, exercises: currentExercises } = get()
+    const patientRow = patients?.[0]
+    if (!patientRow) {
+      toast.error('Patient record not found. Please contact your therapist.')
+      return false
+    }
+
+    // Check if already exists in plan
+    const alreadyInPlan = currentExercises.some(
+      (e) => e.name === exerciseData.name && e.category === exerciseData.category
+    )
+    if (alreadyInPlan) {
+      toast.error('This exercise is already in your plan')
+      return false
+    }
+
+    // ✅ FIX: use the patient's own auth user ID so RLS passes.
+    // The therapist can still see this exercise because it's linked
+    // via patient_id → patients.user_id on the therapist's side.
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+
+    const record = {
+      ...exerciseData,
+      id: uid(),
+      user_id: authUser.id,      // ✅ patient's own auth ID (was: patientRow.user_id which broke RLS)
+      patient_id: patientRow.id,
+      created_at: new Date().toISOString(),
+    }
+
+    const { data, error } = await supabase.from('exercises').insert(record).select().single()
+
+    if (error) {
+      console.error('Add exercise error:', error)
+      toast.error(error.message || 'Failed to add exercise')
+      return false
+    }
+
+    set((s) => ({ exercises: [...s.exercises, data || record] }))
+    toast.success('Exercise added to your plan ✓')
+    return true
+  },
+
+  removePatientExercise: async (id) => {
+    const { error } = await supabase.from('exercises').delete().eq('id', id)
+    if (error) {
+      console.error('Remove exercise error:', error)
+      toast.error('Failed to remove exercise')
+      return false
+    }
+    set((s) => ({ exercises: s.exercises.filter((e) => e.id !== id) }))
+    toast.success('Exercise removed from your plan ✓')
     return true
   },
 }))

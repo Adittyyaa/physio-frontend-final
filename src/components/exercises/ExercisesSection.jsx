@@ -1,9 +1,12 @@
 import React, { useState } from 'react'
 import { GiMuscleUp } from 'react-icons/gi'
+import { FiPlus, FiMinus, FiCheck } from 'react-icons/fi'
 import { useAppStore } from '../../store/appStore'
 import { Chip, EmptyState, Card, Badge } from '../ui'
 import { ExerciseFormModal } from './ExerciseFormModal'
 import { capitalize } from '../../lib/utils'
+import { DEFAULT_EXERCISES } from '../../lib/defaultData'
+import toast from 'react-hot-toast'
 
 const FILTERS = [
   { id: 'all', label: 'All' },
@@ -16,72 +19,315 @@ const FILTERS = [
   { id: 'other', label: 'Other' },
 ]
 
-export function ExercisesSection() {
+// ── Therapist view ────────────────────────────────────────────
+// Shows the full library. If patientId is provided, each card has
+// a + / − button to assign or remove the exercise for that patient.
+function TherapistExercises({ patientId }) {
   const exercises = useAppStore((s) => s.exercises)
-  const patientMode = useAppStore((s) => (s.user?.user_metadata?.role || 'therapist') === 'patient')
+  const assignExercise = useAppStore((s) => s.assignExercise)
+  const removeAssignedExercise = useAppStore((s) => s.removeAssignedExercise)
   const [filter, setFilter] = useState('all')
   const [showForm, setShowForm] = useState(false)
+  const [busy, setBusy] = useState({}) // exerciseId → true while loading
 
-  const filtered = filter === 'all' ? exercises : exercises.filter((e) => e.category === filter)
+  const libraryExercises = exercises.filter((e) => !e.patient_id)
+  const assignedExercises = patientId ? exercises.filter((e) => e.patient_id === patientId) : []
+
+  // Map: library exercise name+category → assigned exercise id
+  const assignedMap = {}
+  assignedExercises.forEach((e) => { assignedMap[e.name + '|' + e.category] = e.id })
+
+  const filtered = filter === 'all'
+    ? libraryExercises
+    : libraryExercises.filter((e) => e.category === filter)
+
+  const handleToggle = async (libExercise) => {
+    const key = libExercise.name + '|' + libExercise.category
+    const assignedId = assignedMap[key]
+    setBusy((b) => ({ ...b, [libExercise.id]: true }))
+    if (assignedId) {
+      await removeAssignedExercise(assignedId)
+    } else {
+      await assignExercise({
+        name: libExercise.name,
+        category: libExercise.category,
+        reps: libExercise.reps,
+        instructions: libExercise.instructions,
+        media: libExercise.media,
+      }, patientId)
+    }
+    setBusy((b) => ({ ...b, [libExercise.id]: false }))
+  }
 
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-3.5">
         <h2 className="font-display text-xl">Exercise Library</h2>
-        {!patientMode ? (
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-3 py-1.5 bg-[#0f766e] text-white text-xs font-semibold rounded-lg"
-          >
-            + Add
-          </button>
-        ) : null}
+        <button
+          onClick={() => setShowForm(true)}
+          className="px-3 py-1.5 text-white text-xs font-semibold rounded-lg"
+          style={{ background: '#0f766e' }}
+        >
+          + Add
+        </button>
       </div>
+
+      {patientId && assignedExercises.length > 0 && (
+        <div className="text-xs font-semibold mb-3 px-1" style={{ color: 'var(--teal)' }}>
+          {assignedExercises.length} exercise{assignedExercises.length !== 1 ? 's' : ''} assigned to this patient
+        </div>
+      )}
 
       <div className="chip-scroll">
         {FILTERS.map((f) => (
-          <Chip key={f.id} active={filter === f.id} onClick={() => setFilter(f.id)}>
-            {f.label}
-          </Chip>
+          <Chip key={f.id} active={filter === f.id} onClick={() => setFilter(f.id)}>{f.label}</Chip>
         ))}
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState
-          icon={GiMuscleUp}
-          title={patientMode ? 'No exercises shared yet' : 'No exercises in this category'}
-          sub={patientMode ? 'Your physiotherapist will add exercises to your plan.' : undefined}
-        />
+        <EmptyState icon={GiMuscleUp} title="No exercises in this category" />
       ) : (
-        filtered.map((e) => (
-          <Card key={e.id}>
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <div className="text-[15px] font-semibold">{e.name}</div>
-                <div className="text-xs text-[#94a3b8] mt-0.5">
-                  {capitalize(e.category)} · {e.reps || 'No reps set'}
+        filtered.map((e) => {
+          const key = e.name + '|' + e.category
+          const isAssigned = !!assignedMap[key]
+          const isLoading = busy[e.id]
+          return (
+            <Card key={e.id}>
+              <div className="flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <div className="text-[15px] font-semibold" style={{ color: 'var(--text)' }}>{e.name}</div>
+                    {isAssigned && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: 'var(--teal-soft)', color: 'var(--teal)' }}>
+                        <FiCheck size={10} /> Assigned
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs mb-1" style={{ color: 'var(--text-3)' }}>
+                    {capitalize(e.category)} · {e.reps || 'No reps set'}
+                  </div>
+                  {e.instructions && (
+                    <div className="text-[13px]" style={{ color: 'var(--text-2)' }}>{e.instructions}</div>
+                  )}
+                  {e.media && (
+                    <a href={e.media} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[12px] no-underline font-medium mt-1"
+                      style={{ color: 'var(--teal)' }}>
+                      ▶ View Demo →
+                    </a>
+                  )}
                 </div>
+
+                {/* +/− button — only shown when viewing a specific patient */}
+                {patientId && (
+                  <button
+                    onClick={() => handleToggle(e)}
+                    disabled={isLoading}
+                    title={isAssigned ? 'Remove from patient' : 'Assign to patient'}
+                    className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-lg transition-all active:scale-90 disabled:opacity-40"
+                    style={
+                      isAssigned
+                        ? { background: 'var(--red-soft)', color: 'var(--red)' }
+                        : { background: 'var(--teal-soft)', color: 'var(--teal)' }
+                    }
+                  >
+                    {isLoading ? '…' : isAssigned ? <FiMinus size={16} /> : <FiPlus size={16} />}
+                  </button>
+                )}
               </div>
-              <Badge variant="teal">{capitalize(e.category)}</Badge>
-            </div>
-            {e.instructions && (
-              <div className="text-[13px] text-[#475569] mb-2">{e.instructions}</div>
-            )}
-            {e.media && (
-              <a
-                href={e.media}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-[13px] text-[#0f766e] no-underline font-medium"
-              >
-                ▶ View Demo →
-              </a>
-            )}
-          </Card>
-        ))
+            </Card>
+          )
+        })
       )}
 
-      {!patientMode ? <ExerciseFormModal open={showForm} onClose={() => setShowForm(false)} /> : null}
+      <ExerciseFormModal open={showForm} onClose={() => setShowForm(false)} />
     </div>
   )
+}
+
+// ── Patient view ──────────────────────────────────────────────
+function PatientExercises() {
+  const exercises = useAppStore((s) => s.exercises) || []
+  const addPatientExercise = useAppStore((s) => s.addPatientExercise)
+  const removePatientExercise = useAppStore((s) => s.removePatientExercise)
+  const [filter, setFilter] = useState('all')
+  const [view, setView] = useState('all') // 'all' | 'mine'
+  const [busy, setBusy] = useState({})
+
+  // Map saved exercises by name+category for quick lookup
+  const savedMap = {}
+  exercises.forEach((e) => {
+    const key = (e.name || '').trim() + '|' + (e.category || '').trim()
+    savedMap[key] = e.id
+  })
+
+  const handleToggle = async (ex) => {
+    const key = (ex.name || '').trim() + '|' + (ex.category || '').trim()
+    const savedId = savedMap[key]
+    setBusy((b) => ({ ...b, [key]: true }))
+    try {
+      if (savedId) {
+        await removePatientExercise(savedId)
+      } else {
+        await addPatientExercise({
+          name: ex.name,
+          category: ex.category,
+          reps: ex.reps,
+          instructions: ex.instructions,
+          media: ex.media || null,
+        })
+      }
+    } catch (err) {
+      console.error('Toggle exercise error:', err)
+      toast.error('Something went wrong')
+    } finally {
+      setBusy((b) => ({ ...b, [key]: false }))
+    }
+  }
+
+  const addedCount = exercises.length
+
+  // Filter catalogue by category
+  let catalogue = filter === 'all'
+    ? DEFAULT_EXERCISES
+    : DEFAULT_EXERCISES.filter((e) => e.category === filter)
+
+  // If "My Plan" view, only show added ones
+  if (view === 'mine') {
+    catalogue = catalogue.filter((e) => {
+      const k = (e.name || '').trim() + '|' + (e.category || '').trim()
+      return !!savedMap[k]
+    })
+  } else {
+    // Sort: added ones first
+    catalogue = [...catalogue].sort((a, b) => {
+      const aK = (a.name || '').trim() + '|' + (a.category || '').trim()
+      const bK = (b.name || '').trim() + '|' + (b.category || '').trim()
+      const aAdded = !!savedMap[aK]
+      const bAdded = !!savedMap[bK]
+      return bAdded - aAdded
+    })
+  }
+
+  return (
+    <div className="p-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-display text-xl">Exercises</h2>
+        {addedCount > 0 && (
+          <span className="text-xs font-bold px-2.5 py-1 rounded-full"
+            style={{ background: 'var(--teal-soft)', color: 'var(--teal)' }}>
+            {addedCount} in my plan
+          </span>
+        )}
+      </div>
+
+      {/* My Plan / All toggle */}
+      <div className="flex gap-2 mb-3">
+        {[['all', 'All Exercises'], ['mine', 'My Plan']].map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => setView(id)}
+            className="flex-1 py-2 rounded-[10px] text-sm font-semibold border-[1.5px] transition-colors"
+            style={
+              view === id
+                ? { background: '#0f766e', borderColor: '#0f766e', color: '#fff' }
+                : { background: 'var(--card)', borderColor: 'var(--border)', color: 'var(--text-2)' }
+            }
+          >
+            {label}{id === 'mine' && addedCount > 0 ? ` (${addedCount})` : ''}
+          </button>
+        ))}
+      </div>
+
+      {/* Category filter chips */}
+      <div className="chip-scroll">
+        {FILTERS.map((f) => (
+          <Chip key={f.id} active={filter === f.id} onClick={() => setFilter(f.id)}>{f.label}</Chip>
+        ))}
+      </div>
+
+      {catalogue.length === 0 ? (
+        <EmptyState
+          icon={GiMuscleUp}
+          title={view === 'mine' ? 'No exercises in your plan yet' : 'No exercises in this category'}
+          sub={view === 'mine' ? 'Switch to "All Exercises" and tap + to add some' : undefined}
+        />
+      ) : (
+        catalogue.map((ex) => {
+          const key = (ex.name || '').trim() + '|' + (ex.category || '').trim()
+          const isAdded = !!savedMap[key]
+          const isLoading = busy[key]
+
+          return (
+            <div
+              key={key}
+              className="rounded-2xl p-4 mb-3 transition-all"
+              style={{
+                background: isAdded ? 'var(--teal-soft)' : 'var(--card)',
+                border: isAdded ? '2px solid var(--teal)' : '1px solid var(--border)',
+                boxShadow: isAdded ? '0 2px 12px rgba(15,118,110,0.15)' : 'var(--shadow)',
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  {/* Name + badge */}
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <div
+                      className="text-[15px] font-semibold"
+                      style={{ color: isAdded ? 'var(--teal-dim)' : 'var(--text)' }}
+                    >
+                      {ex.name}
+                    </div>
+                    {isAdded && (
+                      <span
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1"
+                        style={{ background: 'var(--teal)', color: '#fff' }}
+                      >
+                        <FiCheck size={10} /> Added
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Category · Reps */}
+                  <div className="text-xs mb-1.5" style={{ color: isAdded ? 'var(--teal)' : 'var(--text-3)' }}>
+                    {capitalize(ex.category)} · {ex.reps}
+                  </div>
+
+                  {/* Instructions */}
+                  {ex.instructions && (
+                    <div className="text-[13px]" style={{ color: isAdded ? 'var(--teal-dim)' : 'var(--text-2)' }}>
+                      {ex.instructions}
+                    </div>
+                  )}
+                </div>
+
+                {/* +/− button */}
+                <button
+                  onClick={() => handleToggle(ex)}
+                  disabled={isLoading}
+                  title={isAdded ? 'Remove from my plan' : 'Add to my plan'}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all active:scale-90 disabled:opacity-40"
+                  style={
+                    isAdded
+                      ? { background: 'var(--teal)', color: '#fff', boxShadow: '0 2px 8px rgba(15,118,110,0.3)' }
+                      : { background: 'var(--teal-soft)', color: 'var(--teal)' }
+                  }
+                >
+                  {isLoading ? '…' : isAdded ? <FiMinus size={18} /> : <FiPlus size={18} />}
+                </button>
+              </div>
+            </div>
+          )
+        })
+      )}
+    </div>
+  )
+}
+
+export function ExercisesSection({ patientId }) {
+  const patientMode = useAppStore((s) => (s.user?.user_metadata?.role || 'therapist') === 'patient')
+  return patientMode
+    ? <PatientExercises />
+    : <TherapistExercises patientId={patientId} />
 }

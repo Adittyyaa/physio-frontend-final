@@ -64,6 +64,7 @@ create table if not exists sessions (
 create table if not exists exercises (
   id            text primary key,
   user_id       uuid references auth.users(id) on delete cascade not null,
+  patient_id    text references patients(id) on delete cascade default null,
   name          text not null,
   category      text not null default 'other', -- neck|shoulder|back|knee|hip|ankle|other
   reps          text,
@@ -71,6 +72,9 @@ create table if not exists exercises (
   media         text,   -- URL to video/image
   created_at    timestamptz default now()
 );
+
+-- Migration: add patient_id to existing exercises table if not present
+alter table exercises add column if not exists patient_id text references patients(id) on delete cascade default null;
 
 -- ── ROW LEVEL SECURITY ────────────────────────────────────────
 alter table patients enable row level security;
@@ -167,15 +171,39 @@ create policy "sessions_portal_read" on sessions
     )
   );
 
--- Patients can read exercises belonging to their therapist
+-- Patients can read library exercises (patient_id is null) OR their own assigned exercises
 create policy "exercises_portal_read" on exercises
   for select
   using (
     exists (
       select 1
       from patients p
-      where p.user_id = exercises.user_id
-        and p.patient_auth_id = (select auth.uid())
+      where p.patient_auth_id = auth.uid()
+        and (exercises.patient_id = p.id or (exercises.patient_id is null and exercises.user_id = p.user_id))
+    )
+  );
+
+-- Patients can insert exercises for themselves
+create policy "exercises_portal_insert" on exercises
+  for insert
+  with check (
+    exists (
+      select 1
+      from patients p
+      where p.id = exercises.patient_id
+        and p.patient_auth_id = auth.uid()
+    )
+  );
+
+-- Patients can delete their own assigned exercises
+create policy "exercises_portal_delete" on exercises
+  for delete
+  using (
+    exists (
+      select 1
+      from patients p
+      where p.id = exercises.patient_id
+        and p.patient_auth_id = auth.uid()
     )
   );
 
