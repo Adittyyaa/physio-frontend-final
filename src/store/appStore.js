@@ -273,7 +273,8 @@ export const useAppStore = create((set, get) => ({
 
     // Check if already exists in plan
     const alreadyInPlan = currentExercises.some(
-      (e) => e.name === exerciseData.name && e.category === exerciseData.category
+      (e) => (e.name || '').trim() === (exerciseData.name || '').trim()
+        && (e.category || '').trim() === (exerciseData.category || '').trim()
     )
     if (alreadyInPlan) {
       toast.error('This exercise is already in your plan')
@@ -286,25 +287,32 @@ export const useAppStore = create((set, get) => ({
       return false
     }
 
+    const id = uid()
     const record = {
-      ...exerciseData,
-      id: uid(),
+      id,
+      name: exerciseData.name,
+      category: exerciseData.category,
+      reps: exerciseData.reps || null,
+      instructions: exerciseData.instructions || null,
+      media: exerciseData.media || null,
       user_id: authUser.id,
       patient_id: patientRow.id,
-      active: true,
       created_at: new Date().toISOString(),
     }
+
+    // Optimistically update UI first
+    set((s) => ({ exercises: [...s.exercises, { ...record, active: true }] }))
 
     const { error } = await supabase.from('exercises').insert(record)
 
     if (error) {
       console.error('Add exercise error:', error)
+      // Revert optimistic update
+      set((s) => ({ exercises: s.exercises.filter((e) => e.id !== id) }))
       toast.error(error.message || 'Failed to add exercise')
       return false
     }
 
-    // Update store immediately with local record
-    set((s) => ({ exercises: [...s.exercises, record] }))
     toast.success('Exercise added to your plan ✓')
     return true
   },
