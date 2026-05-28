@@ -1,19 +1,16 @@
-import React, { useState } from 'react'
 import { FiEdit2, FiTrash2, FiPhone, FiCalendar, FiTrendingUp } from 'react-icons/fi'
 import { GiMuscleUp } from 'react-icons/gi'
+import toast from 'react-hot-toast'
 import { Modal } from '../ui/Modal'
-import { Button, Avatar, StatCard, Badge } from '../ui'
+import { Button, Avatar, StatCard } from '../ui'
 import { useAppStore } from '../../store/appStore'
 import { formatDate, sendWhatsApp } from '../../lib/utils'
 import { today } from '../../lib/utils'
-import { AssignExerciseModal } from '../exercises/AssignExerciseModal'
 
 export function PatientDetailModal({ patient, open, onClose, onEdit, onLogSession, onBookAppt }) {
   const sessions = useAppStore((s) => s.sessions)
   const appointments = useAppStore((s) => s.appointments)
-  const exercises = useAppStore((s) => s.exercises)
   const deletePatient = useAppStore((s) => s.deletePatient)
-  const [showAssign, setShowAssign] = useState(false)
 
   if (!patient) return null
 
@@ -29,10 +26,10 @@ export function PatientDetailModal({ patient, open, onClose, onEdit, onLogSessio
     (a) => a.date >= today() && a.status !== 'cancelled'
   )
 
-  const avgPain =
-    ptSessions.length
-      ? Math.round(ptSessions.reduce((s, x) => s + (parseInt(x.pain) || 0), 0) / ptSessions.length)
-      : null
+  const sessionsWithPain = ptSessions.filter((s) => s.pain != null && s.pain !== '')
+  const avgPain = sessionsWithPain.length
+    ? Math.round(sessionsWithPain.reduce((sum, s) => sum + parseInt(s.pain), 0) / sessionsWithPain.length)
+    : null
 
   const lastSession = ptSessions[0]
 

@@ -123,7 +123,7 @@ export default function App() {
   }
 
   return (
-    <div className="max-w-[480px] mx-auto min-h-screen relative pb-20" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
+    <div className="w-full max-w-[480px] lg:max-w-full mx-auto min-h-screen relative pb-20" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
       <Toaster
         position="bottom-center"
         toastOptions={{
@@ -157,7 +157,7 @@ export default function App() {
         </>
       )}
 
-      <BottomNav active={activeTab} onChange={setActiveTab} />
+      <BottomNav active={activeTab} onChange={setActiveTab} className="lg:hidden" />
       <FAB onClick={handleFAB} />
 
       <StatsModal open={showStats} onClose={() => setShowStats(false)} />

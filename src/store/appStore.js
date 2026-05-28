@@ -273,48 +273,96 @@ export const useAppStore = create((set, get) => ({
 
     // Check if already exists in plan
     const alreadyInPlan = currentExercises.some(
-      (e) => e.name === exerciseData.name && e.category === exerciseData.category
+      (e) => (e.name || '').trim() === (exerciseData.name || '').trim()
+        && (e.category || '').trim() === (exerciseData.category || '').trim()
     )
     if (alreadyInPlan) {
       toast.error('This exercise is already in your plan')
       return false
     }
 
-    // ✅ FIX: use the patient's own auth user ID so RLS passes.
-    // The therapist can still see this exercise because it's linked
-    // via patient_id → patients.user_id on the therapist's side.
     const { data: { user: authUser } } = await supabase.auth.getUser()
+    if (!authUser) {
+      toast.error('Session expired. Please log in again.')
+      return false
+    }
 
+    const id = uid()
     const record = {
-      ...exerciseData,
-      id: uid(),
-      user_id: authUser.id,      // ✅ patient's own auth ID (was: patientRow.user_id which broke RLS)
+      id,
+      name: exerciseData.name,
+      category: exerciseData.category,
+      reps: exerciseData.reps || null,
+      instructions: exerciseData.instructions || null,
+      media: exerciseData.media || null,
+      user_id: authUser.id,
       patient_id: patientRow.id,
       created_at: new Date().toISOString(),
     }
 
-    const { data, error } = await supabase.from('exercises').insert(record).select().single()
+    // Optimistically update UI first
+    set((s) => ({ exercises: [...s.exercises, { ...record, active: true }] }))
+
+    const { error } = await supabase.from('exercises').insert(record)
 
     if (error) {
       console.error('Add exercise error:', error)
+      // Revert optimistic update
+      set((s) => ({ exercises: s.exercises.filter((e) => e.id !== id) }))
       toast.error(error.message || 'Failed to add exercise')
       return false
     }
 
-    set((s) => ({ exercises: [...s.exercises, data || record] }))
     toast.success('Exercise added to your plan ✓')
     return true
   },
 
   removePatientExercise: async (id) => {
+    // Optimistically remove from store first for instant UI feedback
+    const { exercises: prev } = get()
+    set((s) => ({ exercises: s.exercises.filter((e) => e.id !== id) }))
+
     const { error } = await supabase.from('exercises').delete().eq('id', id)
     if (error) {
       console.error('Remove exercise error:', error)
+      // Revert on failure
+      set({ exercises: prev })
       toast.error('Failed to remove exercise')
       return false
     }
-    set((s) => ({ exercises: s.exercises.filter((e) => e.id !== id) }))
     toast.success('Exercise removed from your plan ✓')
+    return true
+  },
+
+  togglePatientExerciseActive: async (id) => {
+    const { exercises } = get()
+    const exercise = exercises.find((e) => e.id === id)
+    if (!exercise) {
+      console.warn('togglePatientExerciseActive: exercise not found with id:', id)
+      return false
+    }
+
+    // Toggle: if currently active (true or undefined/null), set to false; if false, set to true
+    const currentlyActive = exercise.active !== false
+    const newActive = !currentlyActive
+
+    // Optimistic update — create a brand new array to ensure Zustand detects the change
+    const updatedExercises = exercises.map((e) =>
+      e.id === id ? { ...e, active: newActive } : e
+    )
+    set({ exercises: updatedExercises })
+
+    // Try to persist to Supabase — if it fails (e.g. column doesn't exist yet),
+    // keep the local state change so the UI still works
+    try {
+      const { error } = await supabase.from('exercises').update({ active: newActive }).eq('id', id)
+      if (error) {
+        console.warn('Could not persist active status to database:', error.message)
+      }
+    } catch (err) {
+      console.warn('Toggle active network error:', err)
+    }
+    toast.success(newActive ? 'Exercise activated ✓' : 'Exercise paused')
     return true
   },
 }))

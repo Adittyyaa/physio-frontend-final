@@ -8,22 +8,39 @@ export function useAuth() {
   const patientId = user?.user_metadata?.patient_id || null
 
   useEffect(() => {
+    let initialLoadDone = false
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
       setAuthLoading(false)
       if (session?.user) {
+        initialLoadDone = true
         const r = session.user.user_metadata?.role || 'therapist'
         if (r === 'patient') loadPatientData()
         else loadData()
+      } else {
+        setAuthLoading(false)
       }
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
-      if (session?.user) {
-        const r = session.user.user_metadata?.role || 'therapist'
-        if (r === 'patient') loadPatientData()
-        else loadData()
+      // Only load data on actual sign-in events, not on every state change
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+        if (!initialLoadDone) {
+          initialLoadDone = true
+          const r = session.user.user_metadata?.role || 'therapist'
+          if (r === 'patient') loadPatientData()
+          else loadData()
+        } else if (event === 'SIGNED_IN') {
+          // Fresh sign-in after being logged out
+          const r = session.user.user_metadata?.role || 'therapist'
+          if (r === 'patient') loadPatientData()
+          else loadData()
+        }
+      }
+      if (event === 'SIGNED_OUT') {
+        initialLoadDone = false
       }
     })
 
@@ -41,6 +58,7 @@ export function useAuth() {
       email,
       password,
       options: {
+        data: { role: 'therapist' },
         emailRedirectTo: window.location.origin,
       },
     })

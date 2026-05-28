@@ -70,11 +70,15 @@ create table if not exists exercises (
   reps          text,
   instructions  text,
   media         text,   -- URL to video/image
+  active        boolean default true,
   created_at    timestamptz default now()
 );
 
 -- Migration: add patient_id to existing exercises table if not present
 alter table exercises add column if not exists patient_id text references patients(id) on delete cascade default null;
+
+-- Migration: add active column to existing exercises table if not present
+alter table exercises add column if not exists active boolean default true;
 
 -- ── ROW LEVEL SECURITY ────────────────────────────────────────
 alter table patients enable row level security;
@@ -199,6 +203,26 @@ create policy "exercises_portal_insert" on exercises
 create policy "exercises_portal_delete" on exercises
   for delete
   using (
+    exists (
+      select 1
+      from patients p
+      where p.id = exercises.patient_id
+        and p.patient_auth_id = auth.uid()
+    )
+  );
+
+-- Patients can update their own assigned exercises (e.g. toggle active)
+create policy "exercises_portal_update" on exercises
+  for update
+  using (
+    exists (
+      select 1
+      from patients p
+      where p.id = exercises.patient_id
+        and p.patient_auth_id = auth.uid()
+    )
+  )
+  with check (
     exists (
       select 1
       from patients p
