@@ -16,7 +16,7 @@ function TabIcon({ Icon }) {
 export function Tabs({ active, onChange, items = TABS }) {
   return (
     <div
-      className="flex border-b sticky top-[72px] z-[99] overflow-x-auto tabs-scroll"
+      className="hidden lg:flex border-b sticky top-[72px] z-[99] overflow-x-auto tabs-scroll"
       style={{ background: 'var(--card)', borderColor: 'var(--border)' }}
     >
       {items.map((tab) => (
