@@ -13,14 +13,13 @@ function NavIcon({ Icon }) {
   return <div className="flex items-center justify-center"><Icon size={20} /></div>
 }
 
-export function BottomNav({ active, onChange, items = NAV_ITEMS }) {
+export function BottomNav({ active, onChange, items = NAV_ITEMS, className = '' }) {
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 border-t flex z-[300]"
+      className={`fixed bottom-0 left-0 right-0 border-t flex z-[300] max-w-[480px] lg:max-w-full lg:hidden ${className}`}
       style={{
         background: 'var(--card)',
         borderColor: 'var(--border)',
-        maxWidth: 480,
         margin: '0 auto',
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}

@@ -38,10 +38,11 @@ function ProfileTab({ patient, user, appointments, sessions }) {
     [appointments, todayStr]
   )
 
-  const completedSessions = sessions.filter((s) => s.patient_id === patient?.id || sessions.length > 0)
+  const completedSessions = sessions.filter((s) => s.patient_id === patient?.id)
   const lastSession = [...sessions].sort((a, b) => b.date.localeCompare(a.date))[0]
-  const avgPain = sessions.length
-    ? (sessions.reduce((sum, s) => sum + (s.pain ?? 0), 0) / sessions.filter(s => s.pain != null).length || 0).toFixed(1)
+  const sessionsWithPain = sessions.filter((s) => s.pain != null)
+  const avgPain = sessionsWithPain.length
+    ? (sessionsWithPain.reduce((sum, s) => sum + s.pain, 0) / sessionsWithPain.length).toFixed(1)
     : null
 
   const nextAppt = upcoming[0]
@@ -178,7 +179,7 @@ export function PatientDashboard({ user, onLogout, dark, onToggleDark }) {
   }, [])
 
   return (
-    <div className="max-w-[480px] mx-auto min-h-screen relative pb-20" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
+    <div className="w-full max-w-[480px] lg:max-w-full mx-auto min-h-screen relative pb-20" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
       <TopBar user={user} onLogout={onLogout} onStats={() => {}} showStats={false} dark={dark} onToggleDark={onToggleDark} />
 
       <Tabs
@@ -202,6 +203,7 @@ export function PatientDashboard({ user, onLogout, dark, onToggleDark }) {
         active={activeTab}
         onChange={setActiveTab}
         items={TABS}
+        className="lg:hidden"
       />
     </div>
   )

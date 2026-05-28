@@ -129,12 +129,11 @@ export function Card({ className = '', children, onClick }) {
 }
 
 // ── EmptyState ────────────────────────────────────────────────
-export function EmptyState({ icon, title, sub }) {
-  const isComponent = typeof icon === 'function'
+export function EmptyState({ icon: Icon, title, sub }) {
   return (
     <div className="text-center py-10 px-5 text-[#94a3b8]">
       <div className="text-5xl mb-3 flex items-center justify-center h-16">
-        {isComponent ? <icon size={48} /> : icon}
+        {Icon ? <Icon size={48} /> : null}
       </div>
       <div className="text-[15px] font-medium text-[#475569]">{title}</div>
       {sub && <div className="text-[13px] mt-1.5">{sub}</div>}

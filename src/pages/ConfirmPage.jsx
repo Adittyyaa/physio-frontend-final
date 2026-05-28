@@ -1,31 +1,46 @@
-import React from 'react'
-import { FiCheckCircle } from 'react-icons/fi'
+import { FiCheckCircle, FiHome } from 'react-icons/fi'
 
 export function ConfirmPage({ onContinue }) {
   return (
     <div
-      className="min-h-screen bg-[#f0fdfa] flex flex-col items-center justify-center p-6"
-      style={{ maxWidth: 480, margin: '0 auto' }}
+      className="min-h-screen flex flex-col items-center justify-center p-6"
+      style={{ background: 'var(--bg)', color: 'var(--text)' }}
     >
-      <div className="bg-white rounded-2xl p-6 w-full" style={{ boxShadow: 'var(--shadow-lg)' }}>
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-11 h-11 rounded-xl bg-[#dcfce7] text-[#166534] flex items-center justify-center">
-            <FiCheckCircle size={22} />
-          </div>
-          <div>
-            <h2 className="font-display text-xl text-[#0f172a]">Email confirmed</h2>
-            <p className="text-sm text-[#475569]">Your account is ready.</p>
-          </div>
+      <div
+        className="rounded-2xl p-8 w-full text-center"
+        style={{ maxWidth: 420, background: 'var(--card)', boxShadow: 'var(--shadow-lg)' }}
+      >
+        {/* Logo */}
+        <div
+          className="w-16 h-16 bg-[#0f766e] rounded-2xl flex items-center justify-center mx-auto mb-5 text-white"
+          style={{ boxShadow: '0 4px 20px rgba(15,118,110,0.3)' }}
+        >
+          <FiHome size={30} />
         </div>
+
+        {/* Check icon */}
+        <div
+          className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5"
+          style={{ background: 'var(--teal-soft)' }}
+        >
+          <FiCheckCircle size={40} color="var(--teal)" />
+        </div>
+
+        <h1 className="font-display text-2xl mb-2" style={{ color: 'var(--text)' }}>
+          Email Confirmed!
+        </h1>
+        <p className="text-sm mb-6" style={{ color: 'var(--text-2)' }}>
+          Your PhysioTrack account is ready. You can now sign in and start managing your patients.
+        </p>
 
         <button
           onClick={onContinue}
-          className="w-full mt-5 py-[11px] bg-[#0f766e] text-white font-semibold rounded-[10px] text-[15px] cursor-pointer border-none transition-colors hover:bg-[#134e4a]"
+          className="w-full py-3 text-white font-semibold rounded-xl text-[15px] cursor-pointer border-none transition-all hover:opacity-90 active:scale-95"
+          style={{ background: '#0f766e', boxShadow: '0 4px 12px rgba(15,118,110,0.3)' }}
         >
-          Continue
+          Go to PhysioTrack →
         </button>
       </div>
     </div>
   )
 }
-

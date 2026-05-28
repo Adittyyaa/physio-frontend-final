@@ -14,8 +14,9 @@ export function StatsModal({ open, onClose }) {
   const todayAppts = appointments.filter((a) => a.date === t).length
   const completedAppts = appointments.filter((a) => a.status === 'completed').length
   const activePatients = patients.filter((p) => p.active !== false).length
-  const avgPain = sessions.length
-    ? (sessions.reduce((s, x) => s + (parseInt(x.pain) || 0), 0) / sessions.length).toFixed(1)
+  const sessionsWithPain = sessions.filter((s) => s.pain != null && s.pain !== '')
+  const avgPain = sessionsWithPain.length
+    ? (sessionsWithPain.reduce((sum, x) => sum + parseInt(x.pain), 0) / sessionsWithPain.length).toFixed(1)
     : '—'
 
   return (

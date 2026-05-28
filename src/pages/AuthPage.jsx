@@ -50,9 +50,19 @@ export function AuthPage({ initialAccountType = null }) {
       }
 
       if (result.error) {
-        const msg = String(result.error || '')
-        if (msg.toLowerCase().includes('rate limit')) {
-          setError('Too many signup emails were sent. Wait a few minutes and try again.')
+        const msg = String(result.error || '').toLowerCase()
+        if (msg.includes('rate limit')) {
+          setError('Too many attempts. Wait a few minutes and try again.')
+        } else if (mode === 'signup' && (msg.includes('already registered') || msg.includes('already exists') || msg.includes('user already') || msg.includes('duplicate') || msg.includes('email address is already'))) {
+          setError('An account with this email already exists. Please sign in instead.')
+        } else if (mode === 'login' && msg.includes('email not confirmed')) {
+          setError('Please confirm your email first. Check your inbox for the confirmation link.')
+        } else if (mode === 'login' && (msg.includes('invalid login') || msg.includes('invalid credentials') || msg.includes('no user') || msg.includes('user not found'))) {
+          setError('Incorrect email or password. Please try again.')
+        } else if (msg.includes('password') && msg.includes('short')) {
+          setError('Password must be at least 6 characters.')
+        } else if (msg.includes('sending confirmation') || msg.includes('smtp')) {
+          setError('Account created but confirmation email failed. Please try signing in directly.')
         } else {
           setError(result.error)
         }
@@ -124,8 +134,31 @@ export function AuthPage({ initialAccountType = null }) {
         </h2>
 
         {error && (
-          <div className="text-sm px-3 py-2 rounded-lg mb-4" style={{ background: 'var(--red-soft)', color: 'var(--red)' }}>
+          <div className="text-sm px-3 py-2.5 rounded-lg mb-4" style={{ background: 'var(--red-soft)', color: 'var(--red)' }}>
             {error}
+            {/* Suggest switching mode based on error type */}
+            {mode === 'signup' && error.includes('already exists') && (
+              <div className="mt-1.5">
+                <button
+                  onClick={() => { setMode('login'); setError(''); setSuccess('') }}
+                  className="font-bold underline bg-transparent border-none cursor-pointer text-sm"
+                  style={{ color: 'var(--red)' }}
+                >
+                  Sign in instead →
+                </button>
+              </div>
+            )}
+            {mode === 'login' && error.includes('sign up first') && (
+              <div className="mt-1.5">
+                <button
+                  onClick={() => { setMode('signup'); setError(''); setSuccess('') }}
+                  className="font-bold underline bg-transparent border-none cursor-pointer text-sm"
+                  style={{ color: 'var(--red)' }}
+                >
+                  Create an account →
+                </button>
+              </div>
+            )}
           </div>
         )}
         {success && (

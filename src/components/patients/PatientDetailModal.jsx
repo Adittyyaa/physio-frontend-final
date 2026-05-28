@@ -26,10 +26,10 @@ export function PatientDetailModal({ patient, open, onClose, onEdit, onLogSessio
     (a) => a.date >= today() && a.status !== 'cancelled'
   )
 
-  const avgPain =
-    ptSessions.length
-      ? Math.round(ptSessions.reduce((s, x) => s + (parseInt(x.pain) || 0), 0) / ptSessions.length)
-      : null
+  const sessionsWithPain = ptSessions.filter((s) => s.pain != null && s.pain !== '')
+  const avgPain = sessionsWithPain.length
+    ? Math.round(sessionsWithPain.reduce((sum, s) => sum + parseInt(s.pain), 0) / sessionsWithPain.length)
+    : null
 
   const lastSession = ptSessions[0]
 
