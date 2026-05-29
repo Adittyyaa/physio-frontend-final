@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { supabase } from '../lib/supabase'
 import { uid, formatDate, patientCode4 } from '../lib/utils'
-import { DEFAULT_EXERCISES, DEFAULT_PATIENTS } from '../lib/defaultData'
+import { DEFAULT_EXERCISES } from '../lib/defaultData'
 import toast from 'react-hot-toast'
 
 export const useAppStore = create((set, get) => ({
@@ -38,40 +38,19 @@ export const useAppStore = create((set, get) => ({
       const patients = pRes.data || []
       const exercises = eRes.data || []
 
-      // Seed dummy patients if user has none
-      let seededPatients = patients
-      if (patients.length === 0) {
-        const used = new Set()
-        const nextCode = () => {
-          let code = patientCode4()
-          let tries = 0
-          while (used.has(code) && tries < 25) { code = patientCode4(); tries += 1 }
-          used.add(code)
-          return code
-        }
-        const seed = DEFAULT_PATIENTS.map((p) => ({
-          ...p,
-          id: nextCode(),
-          user_id: user.id,
-          created_at: new Date().toISOString(),
-        }))
-        const { data: insertedPatients } = await supabase.from('patients').insert(seed).select()
-        seededPatients = insertedPatients || seed
-      }
-
       // Seed default exercises if user has none
       if (exercises.length === 0) {
         const seeded = DEFAULT_EXERCISES.map((e) => ({ ...e, user_id: user.id }))
         const { data: insertedExercises } = await supabase.from('exercises').insert(seeded).select()
         set({
-          patients: seededPatients,
+          patients,
           appointments: aRes.data || [],
           sessions: sRes.data || [],
           exercises: insertedExercises || seeded,
         })
       } else {
         set({
-          patients: seededPatients,
+          patients,
           appointments: aRes.data || [],
           sessions: sRes.data || [],
           exercises,
