@@ -1,12 +1,15 @@
 -- ============================================================
--- PhysioTrack — Supabase Schema
--- Run this in the Supabase SQL Editor
+-- PhysioTrack — Supabase Schema (IMPROVED NAMING CONVENTION)
+-- Tables: Tbl_ prefix with PascalCase
+-- Columns: snake_case
+-- Run this in the Supabase SQL Editor for NEW installations
+-- For EXISTING databases, use rename_tables_migration.sql instead
 -- ============================================================
 
 -- Enable UUID extension (usually already enabled)
 create extension if not exists "uuid-ossp";
 
--- ── PATIENTS ─────────────────────────────────────────────────
+-- ── TBL_PATIENTS ─────────────────────────────────────────────────
 create table if not exists Tbl_Patients (
   id            text primary key,
   user_id       uuid references auth.users(id) on delete cascade not null,
@@ -25,7 +28,7 @@ create table if not exists Tbl_Patients (
   created_at    timestamptz default now()
 );
 
--- ── APPOINTMENTS ──────────────────────────────────────────────
+-- ── TBL_APPOINTMENTS ──────────────────────────────────────────────
 create table if not exists Tbl_Appointments (
   id            text primary key,
   user_id       uuid references auth.users(id) on delete cascade not null,
@@ -41,11 +44,11 @@ create table if not exists Tbl_Appointments (
   created_at    timestamptz default now()
 );
 
--- ── SESSIONS ──────────────────────────────────────────────────
+-- ── TBL_SESSIONS ──────────────────────────────────────────────────
 create table if not exists Tbl_Sessions (
   id                text primary key,
   user_id           uuid references auth.users(id) on delete cascade not null,
-  patient_id        text references patients(id) on delete cascade,
+  patient_id        text references Tbl_Patients(id) on delete cascade,
   patient_name      text,
   date              date not null,
   session_num       integer,
@@ -60,11 +63,11 @@ create table if not exists Tbl_Sessions (
   created_at        timestamptz default now()
 );
 
--- ── EXERCISES ─────────────────────────────────────────────────
-create table if not exists exercises (
+-- ── TBL_EXERCISES ─────────────────────────────────────────────────
+create table if not exists Tbl_Exercises (
   id            text primary key,
   user_id       uuid references auth.users(id) on delete cascade not null,
-  patient_id    text references patients(id) on delete cascade default null,
+  patient_id    text references Tbl_Patients(id) on delete cascade default null,
   name          text not null,
   category      text not null default 'other', -- neck|shoulder|back|knee|hip|ankle|other
   reps          text,
@@ -74,162 +77,119 @@ create table if not exists exercises (
   created_at    timestamptz default now()
 );
 
--- Migration: add patient_id to existing exercises table if not present
-alter table exercises add column if not exists patient_id text references patients(id) on delete cascade default null;
-
--- Migration: add active column to existing exercises table if not present
-alter table exercises add column if not exists active boolean default true;
-
 -- ── ROW LEVEL SECURITY ────────────────────────────────────────
-alter table patients enable row level security;
-alter table appointments enable row level security;
-alter table sessions enable row level security;
-alter table exercises enable row level security;
+alter table Tbl_Patients enable row level security;
+alter table Tbl_Appointments enable row level security;
+alter table Tbl_Sessions enable row level security;
+alter table Tbl_Exercises enable row level security;
 
 -- Policies: users can only see and modify their own data
-create policy "patients_own" on patients
+create policy "Tbl_Patients_own" on Tbl_Patients
   for all using (auth.uid() = user_id);
 
-create policy "appointments_own" on appointments
+create policy "Tbl_Appointments_own" on Tbl_Appointments
   for all using (auth.uid() = user_id);
 
-create policy "sessions_own" on sessions
+create policy "Tbl_Sessions_own" on Tbl_Sessions
   for all using (auth.uid() = user_id);
 
-create policy "exercises_own" on exercises
+create policy "Tbl_Exercises_own" on Tbl_Exercises
   for all using (auth.uid() = user_id);
 
--- ── Patient login (optional) ─────────────────────────────────
--- If you create auth users for patients, set their user_metadata:
---   role = "patient"
---   patient_id = "<patients.id>"
---
--- Then these policies allow patients to READ their own patient record + appointments/sessions.
-create policy "patients_patient_read" on patients
-  for select
-  using (
-    (auth.jwt() -> 'user_metadata' ->> 'role') = 'patient'
-    and id = (auth.jwt() -> 'user_metadata' ->> 'patient_id')
-  );
-
-create policy "appointments_patient_read" on appointments
-  for select
-  using (
-    (auth.jwt() -> 'user_metadata' ->> 'role') = 'patient'
-    and patient_id = (auth.jwt() -> 'user_metadata' ->> 'patient_id')
-  );
-
-create policy "sessions_patient_read" on sessions
-  for select
-  using (
-    (auth.jwt() -> 'user_metadata' ->> 'role') = 'patient'
-    and patient_id = (auth.jwt() -> 'user_metadata' ->> 'patient_id')
-  );
-
--- ── INDEXES ───────────────────────────────────────────────────
-create index if not exists idx_patients_user on patients(user_id);
-create unique index if not exists idx_patients_auth on patients(patient_auth_id);
-create index if not exists idx_appointments_user on appointments(user_id);
-create index if not exists idx_appointments_date on appointments(date);
-create index if not exists idx_sessions_user on sessions(user_id);
-create index if not exists idx_sessions_patient on sessions(patient_id);
-create index if not exists idx_exercises_user on exercises(user_id);
-
--- ── Patient portal access (optional) ─────────────────────────
--- Secure patient access uses `patients.patient_auth_id = auth.uid()`.
--- This avoids relying on `user_metadata` claims in RLS (which are user-editable).
-drop policy if exists "patients_patient_read" on patients;
-drop policy if exists "appointments_patient_read" on appointments;
-drop policy if exists "sessions_patient_read" on sessions;
-drop policy if exists "patients_portal_read" on patients;
-drop policy if exists "appointments_portal_read" on appointments;
-drop policy if exists "sessions_portal_read" on sessions;
-drop policy if exists "exercises_portal_read" on exercises;
-
+-- ── Patient portal access ─────────────────────────────────────────
 -- Patients can read their own patient row
-create policy "patients_portal_read" on patients
+create policy "Tbl_Patients_portal_read" on Tbl_Patients
   for select
   using (patient_auth_id = (select auth.uid()));
 
--- Patients can read their own appointments (joined via patient row)
-create policy "appointments_portal_read" on appointments
+-- Patients can read their own appointments
+create policy "Tbl_Appointments_portal_read" on Tbl_Appointments
   for select
   using (
     exists (
       select 1
-      from patients p
-      where p.id = appointments.patient_id
+      from Tbl_Patients p
+      where p.id = Tbl_Appointments.patient_id
         and p.patient_auth_id = (select auth.uid())
     )
   );
 
--- Patients can read their own sessions (joined via patient row)
-create policy "sessions_portal_read" on sessions
+-- Patients can read their own sessions
+create policy "Tbl_Sessions_portal_read" on Tbl_Sessions
   for select
   using (
     exists (
       select 1
-      from patients p
-      where p.id = sessions.patient_id
+      from Tbl_Patients p
+      where p.id = Tbl_Sessions.patient_id
         and p.patient_auth_id = (select auth.uid())
     )
   );
 
--- Patients can read library exercises (patient_id is null) OR their own assigned exercises
-create policy "exercises_portal_read" on exercises
+-- Patients can read library exercises OR their own assigned exercises
+create policy "Tbl_Exercises_portal_read" on Tbl_Exercises
   for select
   using (
     exists (
       select 1
-      from patients p
+      from Tbl_Patients p
       where p.patient_auth_id = auth.uid()
-        and (exercises.patient_id = p.id or (exercises.patient_id is null and exercises.user_id = p.user_id))
+        and (Tbl_Exercises.patient_id = p.id or (Tbl_Exercises.patient_id is null and Tbl_Exercises.user_id = p.user_id))
     )
   );
 
 -- Patients can insert exercises for themselves
-create policy "exercises_portal_insert" on exercises
+create policy "Tbl_Exercises_portal_insert" on Tbl_Exercises
   for insert
   with check (
     exists (
       select 1
-      from patients p
-      where p.id = exercises.patient_id
+      from Tbl_Patients p
+      where p.id = Tbl_Exercises.patient_id
         and p.patient_auth_id = auth.uid()
     )
   );
 
 -- Patients can delete their own assigned exercises
-create policy "exercises_portal_delete" on exercises
+create policy "Tbl_Exercises_portal_delete" on Tbl_Exercises
   for delete
   using (
     exists (
       select 1
-      from patients p
-      where p.id = exercises.patient_id
+      from Tbl_Patients p
+      where p.id = Tbl_Exercises.patient_id
         and p.patient_auth_id = auth.uid()
     )
   );
 
--- Patients can update their own assigned exercises (e.g. toggle active)
-create policy "exercises_portal_update" on exercises
+-- Patients can update their own assigned exercises
+create policy "Tbl_Exercises_portal_update" on Tbl_Exercises
   for update
   using (
     exists (
       select 1
-      from patients p
-      where p.id = exercises.patient_id
+      from Tbl_Patients p
+      where p.id = Tbl_Exercises.patient_id
         and p.patient_auth_id = auth.uid()
     )
   )
   with check (
     exists (
       select 1
-      from patients p
-      where p.id = exercises.patient_id
+      from Tbl_Patients p
+      where p.id = Tbl_Exercises.patient_id
         and p.patient_auth_id = auth.uid()
     )
   );
+
+-- ── INDEXES ───────────────────────────────────────────────────────
+create index if not exists idx_Tbl_Patients_user_id on Tbl_Patients(user_id);
+create unique index if not exists idx_Tbl_Patients_auth_id on Tbl_Patients(patient_auth_id);
+create index if not exists idx_Tbl_Appointments_user_id on Tbl_Appointments(user_id);
+create index if not exists idx_Tbl_Appointments_date on Tbl_Appointments(date);
+create index if not exists idx_Tbl_Sessions_user_id on Tbl_Sessions(user_id);
+create index if not exists idx_Tbl_Sessions_patient_id on Tbl_Sessions(patient_id);
+create index if not exists idx_Tbl_Exercises_user_id on Tbl_Exercises(user_id);
 
 -- ── AUTOMATIC PATIENT LINKING TRIGGERS ───────────────────────
 
@@ -244,26 +204,21 @@ declare
   matching_patient_id text;
   input_role text;
 begin
-  -- Check if role is already specified in signup metadata
   input_role := new.raw_user_meta_data->>>'role';
   
-  -- Check if the email exists in public.patients
   select id into matching_patient_id
-  from public.patients
+  from public.Tbl_Patients
   where patient_email = new.email
   limit 1;
 
-  -- If they signed up with a patient code in metadata
   if new.raw_user_meta_data->>>'patient_id' is not null and new.raw_user_meta_data->>>'patient_id' <> '' then
     matching_patient_id := new.raw_user_meta_data->>>'patient_id';
   end if;
 
   if matching_patient_id is not null or input_role = 'patient' then
-    -- It is a patient! Set role and patient_id in user_metadata
     new.raw_user_meta_data := coalesce(new.raw_user_meta_data, '{}'::jsonb) || 
       jsonb_build_object('role', 'patient', 'patient_id', matching_patient_id);
   else
-    -- Default to therapist role
     new.raw_user_meta_data := coalesce(new.raw_user_meta_data, '{}'::jsonb) || 
       jsonb_build_object('role', 'therapist');
   end if;
@@ -278,8 +233,7 @@ create trigger on_auth_user_created_before
   for each row
   execute function public.handle_new_user();
 
-
--- 2. Trigger AFTER user insertion in auth.users to link patient_auth_id
+-- 2. Trigger AFTER user insertion to link patient_auth_id
 create or replace function public.handle_new_user_after()
 returns trigger
 language plpgsql
@@ -287,7 +241,7 @@ security definer
 set search_path = public
 as $$
 begin
-  update public.patients
+  update public.Tbl_Patients
   set patient_auth_id = new.id
   where patient_email = new.email;
   return new;
@@ -300,8 +254,7 @@ create trigger on_auth_user_created_after
   for each row
   execute function public.handle_new_user_after();
 
-
--- 3. Trigger BEFORE INSERT or UPDATE on public.patients to auto-link if auth user already exists
+-- 3. Trigger BEFORE INSERT/UPDATE on Tbl_Patients to auto-link
 create or replace function public.handle_patient_email_change()
 returns trigger
 language plpgsql
@@ -312,17 +265,14 @@ declare
   existing_user_id uuid;
 begin
   if new.patient_email is not null then
-    -- Check if a user with this email already exists in auth.users
     select id into existing_user_id
     from auth.users
     where email = new.patient_email
     limit 1;
 
     if existing_user_id is not null then
-      -- Link them immediately
       new.patient_auth_id := existing_user_id;
 
-      -- Update their role in auth.users to 'patient'
       update auth.users
       set raw_user_meta_data = coalesce(raw_user_meta_data, '{}'::jsonb) || 
         jsonb_build_object('role', 'patient', 'patient_id', new.id)
@@ -333,8 +283,8 @@ begin
 end;
 $$;
 
-drop trigger if exists on_patient_email_upsert on public.patients;
+drop trigger if exists on_patient_email_upsert on public.Tbl_Patients;
 create trigger on_patient_email_upsert
-  before insert or update of patient_email on public.patients
+  before insert or update of patient_email on public.Tbl_Patients
   for each row
   execute function public.handle_patient_email_change();
