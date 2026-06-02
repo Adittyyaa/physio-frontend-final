@@ -203,8 +203,6 @@ export function CalendarSection() {
     toast.success('Calendar file downloaded! Open it to add to Apple Calendar.')
   }
 
-  const todayStr = today()
-
   return (
     <div className="p-4 max-w-7xl mx-auto">
       <div className="grid lg:grid-cols-2 gap-6">
