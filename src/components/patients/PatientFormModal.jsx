@@ -47,7 +47,7 @@ async function createPatientAuthUser(email, password, patientId) {
 
   // Link the auth user to the patient row
   const { error: linkError } = await supabase
-    .from('patients')
+    .from('tbl_patients')
     .update({ patient_auth_id: newUserId, patient_email: email })
     .eq('id', patientId)
 
@@ -198,10 +198,10 @@ export function PatientFormModal({ patient, open, onClose }) {
       />
 
       {/* Patient Portal Login */}
-      <div className="border-t border-[#e2e8f0] pt-4 mt-2">
-        <div className="text-sm font-semibold text-[#0f172a] mb-3">Patient Portal Login</div>
+      <div className="pt-4 mt-2" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="text-sm font-semibold mb-3" style={{ color: 'var(--text)' }}>Patient Portal Login</div>
         {patient && patient.patient_auth_id ? (
-          <div className="bg-[#f0fdf4] text-[#166534] text-sm px-3 py-2 rounded-lg mb-2">
+          <div className="text-sm px-3 py-2 rounded-lg mb-2" style={{ background: 'var(--green-soft)', color: 'var(--green)' }}>
             ✓ Patient login already linked ({patient.patient_email || 'email on file'})
           </div>
         ) : (
@@ -236,7 +236,8 @@ export function PatientFormModal({ patient, open, onClose }) {
                   <button
                     type="button"
                     onClick={generatePassword}
-                    className="px-3 py-2 rounded-xl bg-white border border-[#e2e8f0] text-sm font-semibold text-[#0f172a] hover:bg-[#f8fafc] whitespace-nowrap"
+                    className="px-3 py-2 rounded-xl text-sm font-semibold whitespace-nowrap"
+                    style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)' }}
                   >
                     Generate
                   </button>

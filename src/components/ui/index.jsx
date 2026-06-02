@@ -77,7 +77,7 @@ export function FormGroup({ label, children }) {
   return (
     <div className="mb-3.5">
       {label && (
-        <label className="block text-xs font-semibold text-[#475569] uppercase tracking-wide mb-1.5">
+        <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-2)' }}>
           {label}
         </label>
       )}
@@ -107,8 +107,8 @@ export function ToggleRow({ label, sub, checked, onChange }) {
   return (
     <div className="flex items-center justify-between py-2.5">
       <div>
-        <div className="text-sm font-medium text-[#0f172a]">{label}</div>
-        {sub && <div className="text-xs text-[#94a3b8]">{sub}</div>}
+        <div className="text-sm font-medium" style={{ color: 'var(--text)' }}>{label}</div>
+        {sub && <div className="text-xs" style={{ color: 'var(--text-3)' }}>{sub}</div>}
       </div>
       <Toggle checked={checked} onChange={onChange} />
     </div>

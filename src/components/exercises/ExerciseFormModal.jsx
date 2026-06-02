@@ -5,27 +5,56 @@ import { useAppStore } from '../../store/appStore'
 
 const EMPTY = { name: '', category: 'neck', reps: '', instructions: '', media: '' }
 
-export function ExerciseFormModal({ open, onClose }) {
+export function ExerciseFormModal({ exercise, open, onClose }) {
   const addExercise = useAppStore((s) => s.addExercise)
+  const updateExercise = useAppStore((s) => s.updateExercise)
   const [form, setForm] = useState(EMPTY)
 
-  useEffect(() => { if (open) setForm(EMPTY) }, [open])
+  useEffect(() => {
+    if (open) {
+      if (exercise) {
+        // Editing existing exercise
+        setForm({
+          name: exercise.name || '',
+          category: exercise.category || 'neck',
+          reps: exercise.reps || '',
+          instructions: exercise.instructions || '',
+          media: exercise.media || '',
+        })
+      } else {
+        // Adding new exercise
+        setForm(EMPTY)
+      }
+    }
+  }, [open, exercise])
+
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }))
 
   const handleSave = async () => {
     if (!form.name.trim()) { alert('Please enter exercise name'); return }
-    const ok = await addExercise({
+    
+    const data = {
       name: form.name.trim(),
       category: form.category,
       reps: form.reps.trim() || null,
       instructions: form.instructions.trim() || null,
       media: form.media.trim() || null,
-    })
+    }
+
+    let ok
+    if (exercise) {
+      // Update existing
+      ok = await updateExercise(exercise.id, data)
+    } else {
+      // Add new
+      ok = await addExercise(data)
+    }
+    
     if (ok) onClose()
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Add Exercise">
+    <Modal open={open} onClose={onClose} title={exercise ? 'Edit Exercise' : 'Add Exercise'}>
       <FormGroup label="Exercise Name *">
         <Input value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Chin Tucks" />
       </FormGroup>
@@ -49,7 +78,7 @@ export function ExerciseFormModal({ open, onClose }) {
       </FormGroup>
       <div className="flex gap-2.5 mt-2">
         <Button variant="outline" full onClick={onClose}>Cancel</Button>
-        <Button full onClick={handleSave}>Save Exercise</Button>
+        <Button full onClick={handleSave}>{exercise ? 'Update' : 'Save'} Exercise</Button>
       </div>
     </Modal>
   )

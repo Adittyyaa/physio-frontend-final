@@ -1,8 +1,8 @@
   import React, { useState } from 'react'
   import { GiMuscleUp } from 'react-icons/gi'
-  import { FiPlus, FiMinus, FiCheck, FiPause, FiPlay } from 'react-icons/fi'
+  import { FiPlus, FiMinus, FiCheck, FiPause, FiPlay, FiEdit2, FiTrash2 } from 'react-icons/fi'
   import { useAppStore } from '../../store/appStore'
-  import { Chip, EmptyState, Card } from '../ui'
+  import { Chip, EmptyState, Card, SearchBar } from '../ui'
   import { ExerciseFormModal } from './ExerciseFormModal'
   import { capitalize } from '../../lib/utils'
   import { DEFAULT_EXERCISES } from '../../lib/defaultData'
@@ -22,24 +22,42 @@
   // ── Therapist view ────────────────────────────────────────────
   // Shows the full library. If patientId is provided, each card has
   // a + / − button to assign or remove the exercise for that patient.
-  function TherapistExercises({ patientId }) {
+  function TherapistExercises({ patientId, onDone }) {
     const exercises = useAppStore((s) => s.exercises)
     const assignExercise = useAppStore((s) => s.assignExercise)
     const removeAssignedExercise = useAppStore((s) => s.removeAssignedExercise)
+    const addExercise = useAppStore((s) => s.addExercise)
+    const deleteExercise = useAppStore((s) => s.deleteExercise)
+    const patients = useAppStore((s) => s.patients)
     const [filter, setFilter] = useState('all')
+    const [search, setSearch] = useState('')
     const [showForm, setShowForm] = useState(false)
+    const [editExercise, setEditExercise] = useState(null)
     const [busy, setBusy] = useState({}) // exerciseId → true while loading
 
     const libraryExercises = exercises.filter((e) => !e.patient_id)
     const assignedExercises = patientId ? exercises.filter((e) => e.patient_id === patientId) : []
+    
+    // Get patient name
+    const patient = patients.find(p => p.id === patientId)
+    const patientName = patient?.name || 'Unknown Patient'
 
     // Map: library exercise name+category → assigned exercise id
     const assignedMap = {}
     assignedExercises.forEach((e) => { assignedMap[e.name + '|' + e.category] = e.id })
 
-    const filtered = filter === 'all'
+    // Filter by category and search
+    let filtered = filter === 'all'
       ? libraryExercises
       : libraryExercises.filter((e) => e.category === filter)
+    
+    // Apply search filter
+    if (search.trim()) {
+      filtered = filtered.filter((e) => 
+        e.name.toLowerCase().includes(search.toLowerCase()) ||
+        e.instructions?.toLowerCase().includes(search.toLowerCase())
+      )
+    }
 
     const handleToggle = async (libExercise) => {
       const key = libExercise.name + '|' + libExercise.category
@@ -59,27 +77,59 @@
       setBusy((b) => ({ ...b, [libExercise.id]: false }))
     }
 
-    return (
-      <div className="p-4">
-        <div className="flex items-center justify-between mb-3.5">
-          <h2 className="font-display text-xl">Exercise Library</h2>
-          <button
-            onClick={() => setShowForm(true)}
-            className="px-3 py-1.5 text-white text-xs font-semibold rounded-lg"
-            style={{ background: '#0f766e' }}
-          >
-            + Add
-          </button>
-        </div>
+    const handleDelete = async (exerciseId) => {
+      if (!window.confirm('Delete this exercise from your library?')) return
+      setBusy((b) => ({ ...b, [exerciseId]: true }))
+      await deleteExercise(exerciseId)
+      setBusy((b) => ({ ...b, [exerciseId]: false }))
+    }
 
-        {patientId && assignedExercises.length > 0 && (
-          <div className="text-xs font-semibold mb-3 px-1" style={{ color: 'var(--teal)' }}>
-            {assignedExercises.length} exercise{assignedExercises.length !== 1 ? 's' : ''} assigned to this patient
+    const handleEdit = (exercise) => {
+      setEditExercise(exercise)
+      setShowForm(true)
+    }
+
+    return (
+      <div className="p-4 pb-24">
+        {/* Header with Done button when assigning to patient */}
+        {patientId ? (
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h2 className="font-display text-xl">Assign Exercises</h2>
+                <p className="text-sm text-[#64748b]">for {patientName}</p>
+              </div>
+              <button
+                onClick={onDone}
+                className="px-4 py-2 bg-[#0f766e] text-white text-sm font-semibold rounded-lg hover:bg-[#0d665f] transition-colors"
+              >
+                Done
+              </button>
+            </div>
+            {assignedExercises.length > 0 && (
+              <div className="text-xs font-semibold px-3 py-2 rounded-lg mb-3" 
+                style={{ background: 'var(--teal-soft)', color: 'var(--teal)' }}>
+                ✓ {assignedExercises.length} exercise{assignedExercises.length !== 1 ? 's' : ''} assigned to this patient
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-between mb-3.5">
+            <h2 className="font-display text-xl">Exercise Library</h2>
+            <button
+              onClick={() => setShowForm(true)}
+              className="px-3 py-1.5 text-white text-xs font-semibold rounded-lg"
+              style={{ background: '#0f766e' }}
+            >
+              + Add
+            </button>
           </div>
         )}
 
-        <div className="chip-scroll">
-          {FILTERS.map((f) => (
+        {/* Search Bar */}
+        <SearchBar value={search} onChange={setSearch} placeholder="Search exercises..." />
+
+        <div className="chip-scroll">{FILTERS.map((f) => (
             <Chip key={f.id} active={filter === f.id} onClick={() => setFilter(f.id)}>{f.label}</Chip>
           ))}
         </div>
@@ -118,29 +168,55 @@
                     )}
                   </div>
 
-                  {/* +/− button — only shown when viewing a specific patient */}
-                  {patientId && (
-                    <button
-                      onClick={() => handleToggle(e)}
-                      disabled={isLoading}
-                      title={isAssigned ? 'Remove from patient' : 'Assign to patient'}
-                      className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-lg transition-all active:scale-90 disabled:opacity-40"
-                      style={
-                        isAssigned
-                          ? { background: 'var(--red-soft)', color: 'var(--red)' }
-                          : { background: 'var(--teal-soft)', color: 'var(--teal)' }
-                      }
-                    >
-                      {isLoading ? '…' : isAssigned ? <FiMinus size={16} /> : <FiPlus size={16} />}
-                    </button>
-                  )}
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-2">
+                    {/* +/− button — only shown when assigning to a specific patient */}
+                    {patientId && (
+                      <button
+                        onClick={() => handleToggle(e)}
+                        disabled={isLoading}
+                        title={isAssigned ? 'Remove from patient' : 'Assign to patient'}
+                        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 font-bold text-lg transition-all active:scale-90 disabled:opacity-40"
+                        style={
+                          isAssigned
+                            ? { background: 'var(--red-soft)', color: 'var(--red)' }
+                            : { background: 'var(--teal-soft)', color: 'var(--teal)' }
+                        }
+                      >
+                        {isLoading ? '…' : isAssigned ? <FiMinus size={16} /> : <FiPlus size={16} />}
+                      </button>
+                    )}
+
+                    {/* Edit/Delete buttons — only shown in library view (not assigning) */}
+                    {!patientId && (
+                      <>
+                        <button
+                          onClick={() => handleEdit(e)}
+                          title="Edit exercise"
+                          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all active:scale-90"
+                          style={{ background: 'var(--teal-soft)', color: 'var(--teal)' }}
+                        >
+                          <FiEdit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(e.id)}
+                          disabled={isLoading}
+                          title="Delete exercise"
+                          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all active:scale-90 disabled:opacity-40"
+                          style={{ background: 'var(--red-soft)', color: 'var(--red)' }}
+                        >
+                          {isLoading ? '…' : <FiTrash2 size={16} />}
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </Card>
             )
           })
         )}
 
-        <ExerciseFormModal open={showForm} onClose={() => setShowForm(false)} />
+        <ExerciseFormModal exercise={editExercise} open={showForm} onClose={() => { setShowForm(false); setEditExercise(null) }} />
       </div>
     )
   }
@@ -231,7 +307,7 @@
     }
 
     return (
-      <div className="p-4">
+      <div className="p-4 pb-24">
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-display text-xl">Exercises</h2>
@@ -378,9 +454,9 @@
     )
   }
 
-  export function ExercisesSection({ patientId }) {
+  export function ExercisesSection({ patientId, onDone }) {
     const patientMode = useAppStore((s) => (s.user?.user_metadata?.role || 'therapist') === 'patient')
     return patientMode
       ? <PatientExercises />
-      : <TherapistExercises patientId={patientId} />
+      : <TherapistExercises patientId={patientId} onDone={onDone} />
   }

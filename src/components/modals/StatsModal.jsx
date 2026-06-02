@@ -33,10 +33,10 @@ export function StatsModal({ open, onClose }) {
         <StatCard num={appointments.length} label="Total Bookings" />
         <StatCard num={completedAppts} label="Completed" />
       </div>
-      <div className="bg-white rounded-2xl p-3 text-center border border-[#e2e8f0]">
-        <div className="text-[11px] text-[#94a3b8] uppercase tracking-wide mb-1">Average Pain Score</div>
+      <div className="rounded-2xl p-3 text-center" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+        <div className="text-[11px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-3)' }}>Average Pain Score</div>
         <div className="text-[32px] font-bold text-[#0f766e]">{avgPain}</div>
-        <div className="text-xs text-[#94a3b8]">across all sessions</div>
+        <div className="text-xs" style={{ color: 'var(--text-3)' }}>across all sessions</div>
       </div>
       <Button variant="outline" full className="mt-2" onClick={onClose}>Close</Button>
     </Modal>

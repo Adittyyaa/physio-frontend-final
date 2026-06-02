@@ -1,8 +1,10 @@
 import React, { useState } from 'react'
 import { Toaster } from 'react-hot-toast'
+import toast from 'react-hot-toast'
 import { useAuth } from './hooks/useAuth'
 import { useAppStore } from './store/appStore'
 import { useDarkMode } from './hooks/useDarkMode'
+import { useIdleTimeout } from './hooks/useIdleTimeout'
 
 import { AuthPage } from './pages/AuthPage'
 import { ConfirmPage } from './pages/ConfirmPage'
@@ -16,6 +18,7 @@ import { PatientsSection } from './components/patients/PatientsSection'
 import { AppointmentsSection } from './components/appointments/AppointmentsSection'
 import { SessionsSection } from './components/sessions/SessionsSection'
 import { ExercisesSection } from './components/exercises/ExercisesSection'
+import { CalendarSection } from './components/calendar/CalendarSection'
 import { StatsModal } from './components/modals/StatsModal'
 
 import { PatientFormModal } from './components/patients/PatientFormModal'
@@ -55,15 +58,26 @@ export default function App() {
 
   const [showConfirm, setShowConfirm] = useState(() => getAuthRedirectType() === 'signup')
   const [showStats, setShowStats] = useState(false)
-  // For cross-section navigation (patient detail → log session / book appt)
+  // For cross-section navigation (patient detail → log session / book appt / assign exercises)
   const [sessionPrePatient, setSessionPrePatient] = useState(null)
   const [apptPrePatient, setApptPrePatient] = useState(null)
+  const [exercisePrePatient, setExercisePrePatient] = useState(null)
 
   // FAB modals (quick-add from current tab)
   const [fabPatient, setFabPatient] = useState(false)
   const [fabAppt, setFabAppt] = useState(false)
   const [fabSession, setFabSession] = useState(false)
   const [fabExercise, setFabExercise] = useState(false)
+
+  // Auto logout after 15 minutes of inactivity
+  useIdleTimeout(async () => {
+    if (user) {
+      toast.error('Session expired due to inactivity. Please log in again.', {
+        duration: 5000,
+      })
+      await signOut()
+    }
+  }, 15 * 60 * 1000) // 15 minutes
 
   if (authLoading) {
     return (
@@ -107,12 +121,23 @@ export default function App() {
     setApptPrePatient(patientId)
   }
 
+  const handleAssignExercises = (patientId) => {
+    setActiveTab('exercises')
+    setExercisePrePatient(patientId)
+  }
+
+  const handleDoneAssigning = () => {
+    setActiveTab('patients')
+    setExercisePrePatient(null)
+  }
+
   const handleSearch = () => {
     setActiveTab('patients')
   }
 
   const handleFAB = () => {
     if (activeTab === 'patients') setFabPatient(true)
+    else if (activeTab === 'calendar') setFabAppt(true)
     else if (activeTab === 'appointments') setFabAppt(true)
     else if (activeTab === 'sessions') setFabSession(true)
     else if (activeTab === 'exercises') setFabExercise(true)
@@ -139,8 +164,13 @@ export default function App() {
       ) : (
         <>
           {activeTab === 'patients' && (
-            <PatientsSection onLogSession={handleLogSession} onBookAppt={handleBookAppt} />
+            <PatientsSection 
+              onLogSession={handleLogSession} 
+              onBookAppt={handleBookAppt}
+              onAssignExercises={handleAssignExercises}
+            />
           )}
+          {activeTab === 'calendar' && <CalendarSection />}
           {activeTab === 'appointments' && (
             <AppointmentsSection
               prePatientId={apptPrePatient}
@@ -153,7 +183,12 @@ export default function App() {
               onClear={() => setSessionPrePatient(null)}
             />
           )}
-          {activeTab === 'exercises' && <ExercisesSection />}
+          {activeTab === 'exercises' && (
+            <ExercisesSection 
+              patientId={exercisePrePatient}
+              onDone={exercisePrePatient ? handleDoneAssigning : null}
+            />
+          )}
         </>
       )}
 

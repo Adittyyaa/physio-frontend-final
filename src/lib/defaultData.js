@@ -13,41 +13,4 @@ export const DEFAULT_EXERCISES = [
   { id: uid(), name: 'Ankle Pumps', category: 'ankle', reps: '3 × 20', instructions: 'Flex and point foot repeatedly to improve circulation.', media: '' },
 ]
 
-export const DEFAULT_PATIENTS = [
-  {
-    name: 'Aarav Sharma',
-    age: 29,
-    gender: 'Male',
-    phone: '9876543210',
-    diagnosis: 'Low back pain',
-    treatment_area: 'Lower Back',
-    active: true,
-  },
-  {
-    name: 'Priya Singh',
-    age: 34,
-    gender: 'Female',
-    phone: '9123456780',
-    diagnosis: 'Knee osteoarthritis',
-    treatment_area: 'Knee',
-    active: true,
-  },
-  {
-    name: 'Rohan Mehta',
-    age: 41,
-    gender: 'Male',
-    phone: '9988776655',
-    diagnosis: 'Shoulder impingement',
-    treatment_area: 'Shoulder',
-    active: true,
-  },
-  {
-    name: 'Neha Patel',
-    age: 26,
-    gender: 'Female',
-    phone: '9012345678',
-    diagnosis: 'Ankle sprain',
-    treatment_area: 'Ankle',
-    active: true,
-  },
-]
+

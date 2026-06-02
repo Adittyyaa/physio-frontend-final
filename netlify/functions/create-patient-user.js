@@ -55,7 +55,7 @@ export async function handler(event) {
 
   // Confirm the caller owns this patient row.
   const { data: patientRow, error: patientError } = await supabaseAdmin
-    .from('patients')
+    .from('tbl_patients')
     .select('id,user_id,patient_auth_id,patient_email')
     .eq('id', patientId)
     .maybeSingle()
@@ -77,7 +77,7 @@ export async function handler(event) {
   if (!newUserId) return json(500, { error: 'User created but missing id' })
 
   const { error: linkError } = await supabaseAdmin
-    .from('patients')
+    .from('tbl_patients')
     .update({ patient_auth_id: newUserId, patient_email: email })
     .eq('id', patientId)
     .eq('user_id', caller.id)
