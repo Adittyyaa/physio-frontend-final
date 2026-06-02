@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo } from 'react'
 import { FiCalendar, FiClipboard, FiUser } from 'react-icons/fi'
 import { GiMuscleUp } from 'react-icons/gi'
+import toast from 'react-hot-toast'
 import { useAppStore } from '../store/appStore'
+import { useIdleTimeout } from '../hooks/useIdleTimeout'
 import { TopBar } from '../components/layout/TopBar'
 import { Tabs } from '../components/layout/Tabs'
 import { BottomNav } from '../components/layout/BottomNav'
@@ -172,6 +174,16 @@ export function PatientDashboard({ user, onLogout, dark, onToggleDark }) {
   const setActiveTab = useAppStore((s) => s.setActiveTab)
 
   const patient = patients?.[0] || null
+
+  // Auto logout after 15 minutes of inactivity
+  useIdleTimeout(async () => {
+    if (user) {
+      toast.error('Session expired due to inactivity. Please log in again.', {
+        duration: 5000,
+      })
+      await onLogout()
+    }
+  }, 15 * 60 * 1000) // 15 minutes
 
   useEffect(() => {
     // Default to profile tab for patients

@@ -1,8 +1,10 @@
 import React, { useState } from 'react'
 import { Toaster } from 'react-hot-toast'
+import toast from 'react-hot-toast'
 import { useAuth } from './hooks/useAuth'
 import { useAppStore } from './store/appStore'
 import { useDarkMode } from './hooks/useDarkMode'
+import { useIdleTimeout } from './hooks/useIdleTimeout'
 
 import { AuthPage } from './pages/AuthPage'
 import { ConfirmPage } from './pages/ConfirmPage'
@@ -66,6 +68,16 @@ export default function App() {
   const [fabAppt, setFabAppt] = useState(false)
   const [fabSession, setFabSession] = useState(false)
   const [fabExercise, setFabExercise] = useState(false)
+
+  // Auto logout after 15 minutes of inactivity
+  useIdleTimeout(async () => {
+    if (user) {
+      toast.error('Session expired due to inactivity. Please log in again.', {
+        duration: 5000,
+      })
+      await signOut()
+    }
+  }, 15 * 60 * 1000) // 15 minutes
 
   if (authLoading) {
     return (
