@@ -79,7 +79,7 @@ export function AppointmentsSection({ prePatientId, onClear }) {
   }
 
   return (
-    <div className="p-4">
+    <div className="p-4 pb-24">
       <div className="flex items-center justify-between mb-3.5">
         <h2 className="font-display text-xl">Schedule</h2>
         {!patientMode ? (

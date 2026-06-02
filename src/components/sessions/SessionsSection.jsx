@@ -30,7 +30,7 @@ export function SessionsSection({ prePatientId, onClear }) {
   }
 
   return (
-    <div className="p-4">
+    <div className="p-4 pb-24">
       <div className="flex items-center justify-between mb-3.5">
         <h2 className="font-display text-xl">Sessions</h2>
         {!patientMode ? (

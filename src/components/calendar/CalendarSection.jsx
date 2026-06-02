@@ -98,12 +98,12 @@ function AppointmentCard({ appointment, patientName, onAddToGoogle, onAddToApple
         </div>
       </div>
 
-      <div className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>
+      <div className="text-xs mb-2" style={{ color: 'var(--text-2)' }}>
         {appointment.type || 'Regular Session'}
       </div>
 
       {appointment.notes && (
-        <div className="text-xs mb-3 p-2 rounded-lg" style={{ background: 'var(--bg)', color: 'var(--text-secondary)' }}>
+        <div className="text-xs mb-3 p-2 rounded-lg" style={{ background: 'var(--bg)', color: 'var(--text-2)' }}>
           {appointment.notes}
         </div>
       )}
@@ -204,7 +204,7 @@ export function CalendarSection() {
   }
 
   return (
-    <div className="p-4 max-w-7xl mx-auto">
+    <div className="p-4 max-w-7xl mx-auto pb-24">
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Calendar Grid */}
         <div>

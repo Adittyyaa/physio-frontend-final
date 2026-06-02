@@ -4,6 +4,7 @@ import { Chip, SearchBar, EmptyState } from '../ui'
 import { PatientItem } from './PatientItem'
 import { PatientDetailModal } from './PatientDetailModal'
 import { PatientFormModal } from './PatientFormModal'
+import { PatientSessionsView } from './PatientSessionsView'
 
 const FILTERS = [
   { id: 'all', label: 'All' },
@@ -20,15 +21,20 @@ export function PatientsSection({ onLogSession, onBookAppt, onAssignExercises })
   const [editPatient, setEditPatient] = useState(null)
   const [showDetail, setShowDetail] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const [showSessions, setShowSessions] = useState(false)
+  const [sessionsPatient, setSessionsPatient] = useState(null)
 
   const now = new Date()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const monthStartTs = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
 
   const filtered = patients.filter((p) => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false
     if (filter === 'active') return p.active !== false
     if (filter === 'inactive') return p.active === false
-    if (filter === 'new') return p.created_at >= monthStart
+    if (filter === 'new') {
+      if (!p.created_at) return false
+      return new Date(p.created_at).getTime() >= monthStartTs
+    }
     return true
   })
 
@@ -47,8 +53,23 @@ export function PatientsSection({ onLogSession, onBookAppt, onAssignExercises })
     setShowForm(true)
   }
 
+  const openSessions = (patient) => {
+    setSessionsPatient(patient)
+    setShowSessions(true)
+  }
+
+  // If viewing sessions, show that view
+  if (showSessions && sessionsPatient) {
+    return (
+      <PatientSessionsView
+        patient={sessionsPatient}
+        onBack={() => setShowSessions(false)}
+      />
+    )
+  }
+
   return (
-    <div className="p-4">
+    <div className="p-4 pb-24">
       <div className="flex items-center justify-between mb-3.5">
         <h2 className="font-display text-xl">Patients</h2>
         <button
@@ -89,6 +110,7 @@ export function PatientsSection({ onLogSession, onBookAppt, onAssignExercises })
         onLogSession={(id) => { setShowDetail(false); onLogSession(id) }}
         onBookAppt={(id) => { setShowDetail(false); onBookAppt(id) }}
         onAssignExercises={(id) => { setShowDetail(false); onAssignExercises && onAssignExercises(id) }}
+        onViewSessions={(p) => { setShowDetail(false); openSessions(p) }}
       />
 
       {/* Form Modal */}

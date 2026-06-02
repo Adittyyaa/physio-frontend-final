@@ -137,6 +137,7 @@ export default function App() {
 
   const handleFAB = () => {
     if (activeTab === 'patients') setFabPatient(true)
+    else if (activeTab === 'calendar') setFabAppt(true)
     else if (activeTab === 'appointments') setFabAppt(true)
     else if (activeTab === 'sessions') setFabSession(true)
     else if (activeTab === 'exercises') setFabExercise(true)

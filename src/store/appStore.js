@@ -217,6 +217,22 @@ export const useAppStore = create((set, get) => ({
     return true
   },
 
+  updateExercise: async (id, data) => {
+    const { error } = await supabase.from('tbl_exercises').update(data).eq('id', id)
+    if (error) { toast.error('Failed to update exercise'); return false }
+    set((s) => ({ exercises: s.exercises.map((e) => (e.id === id ? { ...e, ...data } : e)) }))
+    toast.success('Exercise updated')
+    return true
+  },
+
+  deleteExercise: async (id) => {
+    const { error } = await supabase.from('tbl_exercises').delete().eq('id', id)
+    if (error) { toast.error('Failed to delete exercise'); return false }
+    set((s) => ({ exercises: s.exercises.filter((e) => e.id !== id) }))
+    toast.success('Exercise deleted')
+    return true
+  },
+
   assignExercise: async (exerciseData, patientId) => {
     const { user } = get()
     const record = {
