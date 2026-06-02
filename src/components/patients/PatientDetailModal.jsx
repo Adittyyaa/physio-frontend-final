@@ -7,7 +7,7 @@ import { useAppStore } from '../../store/appStore'
 import { formatDate, sendWhatsApp } from '../../lib/utils'
 import { today } from '../../lib/utils'
 
-export function PatientDetailModal({ patient, open, onClose, onEdit, onLogSession, onBookAppt }) {
+export function PatientDetailModal({ patient, open, onClose, onEdit, onLogSession, onBookAppt, onAssignExercises }) {
   const sessions = useAppStore((s) => s.sessions)
   const appointments = useAppStore((s) => s.appointments)
   const deletePatient = useAppStore((s) => s.deletePatient)
@@ -128,6 +128,9 @@ export function PatientDetailModal({ patient, open, onClose, onEdit, onLogSessio
       <div className="flex gap-2 flex-wrap mt-2">
         <Button size="sm" onClick={() => { onClose(); onLogSession(patient.id) }}>+ Log Session</Button>
         <Button variant="outline" size="sm" onClick={() => { onClose(); onBookAppt(patient.id) }}>+ Appointment</Button>
+        <Button variant="outline" size="sm" onClick={() => { onClose(); onAssignExercises && onAssignExercises(patient.id) }}>
+          <GiMuscleUp size={16} className="inline mr-1" /> Assign Exercises
+        </Button>
         {patient.phone && (
           <Button variant="whatsapp" size="sm" onClick={() => sendWhatsApp(patient.phone, patient.name)}>
             <FiPhone size={16} className="inline mr-1" /> WhatsApp

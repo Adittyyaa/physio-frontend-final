@@ -3,7 +3,7 @@
 ## Table of Contents
 1. [Overview](#overview)
 2. [Database Architecture](#database-architecture)
-3. [Tables Explained](#tables-explained)
+3. [Tables Explained](#tables-explained) 
 4. [How Data Flows](#how-data-flows)
 5. [Security & Access Control](#security--access-control)
 6. [Relationships](#relationships)

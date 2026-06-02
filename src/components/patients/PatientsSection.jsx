@@ -12,7 +12,7 @@ const FILTERS = [
   { id: 'new', label: 'New This Month' },
 ]
 
-export function PatientsSection({ onLogSession, onBookAppt }) {
+export function PatientsSection({ onLogSession, onBookAppt, onAssignExercises }) {
   const patients = useAppStore((s) => s.patients)
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
@@ -88,6 +88,7 @@ export function PatientsSection({ onLogSession, onBookAppt }) {
         onEdit={(p) => { setShowDetail(false); openEdit(p) }}
         onLogSession={(id) => { setShowDetail(false); onLogSession(id) }}
         onBookAppt={(id) => { setShowDetail(false); onBookAppt(id) }}
+        onAssignExercises={(id) => { setShowDetail(false); onAssignExercises && onAssignExercises(id) }}
       />
 
       {/* Form Modal */}

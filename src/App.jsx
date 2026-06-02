@@ -56,9 +56,10 @@ export default function App() {
 
   const [showConfirm, setShowConfirm] = useState(() => getAuthRedirectType() === 'signup')
   const [showStats, setShowStats] = useState(false)
-  // For cross-section navigation (patient detail → log session / book appt)
+  // For cross-section navigation (patient detail → log session / book appt / assign exercises)
   const [sessionPrePatient, setSessionPrePatient] = useState(null)
   const [apptPrePatient, setApptPrePatient] = useState(null)
+  const [exercisePrePatient, setExercisePrePatient] = useState(null)
 
   // FAB modals (quick-add from current tab)
   const [fabPatient, setFabPatient] = useState(false)
@@ -108,6 +109,16 @@ export default function App() {
     setApptPrePatient(patientId)
   }
 
+  const handleAssignExercises = (patientId) => {
+    setActiveTab('exercises')
+    setExercisePrePatient(patientId)
+  }
+
+  const handleDoneAssigning = () => {
+    setActiveTab('patients')
+    setExercisePrePatient(null)
+  }
+
   const handleSearch = () => {
     setActiveTab('patients')
   }
@@ -140,7 +151,11 @@ export default function App() {
       ) : (
         <>
           {activeTab === 'patients' && (
-            <PatientsSection onLogSession={handleLogSession} onBookAppt={handleBookAppt} />
+            <PatientsSection 
+              onLogSession={handleLogSession} 
+              onBookAppt={handleBookAppt}
+              onAssignExercises={handleAssignExercises}
+            />
           )}
           {activeTab === 'calendar' && <CalendarSection />}
           {activeTab === 'appointments' && (
@@ -155,7 +170,12 @@ export default function App() {
               onClear={() => setSessionPrePatient(null)}
             />
           )}
-          {activeTab === 'exercises' && <ExercisesSection />}
+          {activeTab === 'exercises' && (
+            <ExercisesSection 
+              patientId={exercisePrePatient}
+              onDone={exercisePrePatient ? handleDoneAssigning : null}
+            />
+          )}
         </>
       )}
 
