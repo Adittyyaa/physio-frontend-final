@@ -1,0 +1,56 @@
+Table Name,Column Name,Data Type,Constraints,Description,Foreign Key
+tbl_patients,id,text,PRIMARY KEY,Unique patient identifier (4-digit code),
+tbl_patients,user_id,uuid,NOT NULL | REFERENCES auth.users(id) ON DELETE CASCADE,Therapist who owns this patient,auth.users(id)
+tbl_patients,patient_auth_id,uuid,REFERENCES auth.users(id) ON DELETE SET NULL,Patient's auth user ID for portal login,auth.users(id)
+tbl_patients,patient_email,text,,Email for patient portal login,
+tbl_patients,name,text,NOT NULL,Patient's full name,
+tbl_patients,age,integer,,Patient's age,
+tbl_patients,gender,text,,Patient's gender (Male/Female/Other),
+tbl_patients,phone,text,,Patient's phone number,
+tbl_patients,diagnosis,text,,Medical diagnosis or condition,
+tbl_patients,treatment_area,text,,Body area being treated,
+tbl_patients,referred_by,text,,Doctor or referral source,
+tbl_patients,notes,text,,General notes about the patient,
+tbl_patients,allow_reschedule,boolean,DEFAULT true,Can patient reschedule appointments,
+tbl_patients,active,boolean,DEFAULT true,Is patient currently active,
+tbl_patients,created_at,timestamptz,DEFAULT now(),Record creation timestamp,
+
+tbl_appointments,id,text,PRIMARY KEY,Unique appointment identifier,
+tbl_appointments,user_id,uuid,NOT NULL | REFERENCES auth.users(id) ON DELETE CASCADE,Therapist who owns this appointment,auth.users(id)
+tbl_appointments,patient_id,text,REFERENCES tbl_patients(id) ON DELETE CASCADE,Patient for this appointment,tbl_patients(id)
+tbl_appointments,patient_name,text,,Patient name (denormalized),
+tbl_appointments,date,date,NOT NULL,Appointment date,
+tbl_appointments,time,text,NOT NULL,Appointment time,
+tbl_appointments,duration,text,DEFAULT '60',Duration in minutes,
+tbl_appointments,type,text,DEFAULT 'Regular Session',Type of appointment,
+tbl_appointments,notes,text,,Appointment notes,
+tbl_appointments,reminder,boolean,DEFAULT true,Send reminder to patient,
+tbl_appointments,status,text,DEFAULT 'scheduled',Status: scheduled/completed/cancelled/pending,
+tbl_appointments,created_at,timestamptz,DEFAULT now(),Record creation timestamp,
+
+tbl_sessions,id,text,PRIMARY KEY,Unique session identifier,
+tbl_sessions,user_id,uuid,NOT NULL | REFERENCES auth.users(id) ON DELETE CASCADE,Therapist who owns this session,auth.users(id)
+tbl_sessions,patient_id,text,REFERENCES tbl_patients(id) ON DELETE CASCADE,Patient for this session,tbl_patients(id)
+tbl_sessions,patient_name,text,,Patient name (denormalized),
+tbl_sessions,date,date,NOT NULL,Session date,
+tbl_sessions,session_num,integer,,Session number,
+tbl_sessions,pain,integer,CHECK (pain >= 0 AND pain <= 10),Pain level (0-10 scale),
+tbl_sessions,exercises,text[],,Array of exercise names performed,
+tbl_sessions,current_treatment,text,,Treatment provided in this session,
+tbl_sessions,progress,text,,Patient's progress notes,
+tbl_sessions,next_plan,text,,Plan for next session,
+tbl_sessions,home_exercises,text,,Home exercises prescribed,
+tbl_sessions,rating,integer,CHECK (rating >= 1 AND rating <= 5),Session rating (1-5 stars),
+tbl_sessions,private_notes,text,,Private therapist notes,
+tbl_sessions,created_at,timestamptz,DEFAULT now(),Record creation timestamp,
+
+tbl_exercises,id,text,PRIMARY KEY,Unique exercise identifier,
+tbl_exercises,user_id,uuid,NOT NULL | REFERENCES auth.users(id) ON DELETE CASCADE,Therapist who owns this exercise,auth.users(id)
+tbl_exercises,patient_id,text,REFERENCES tbl_patients(id) ON DELETE CASCADE DEFAULT NULL,Patient assigned to (NULL = library exercise),tbl_patients(id)
+tbl_exercises,name,text,NOT NULL,Exercise name,
+tbl_exercises,category,text,NOT NULL DEFAULT 'other',Category: neck/shoulder/back/knee/hip/ankle/other,
+tbl_exercises,reps,text,,Repetitions/sets description,
+tbl_exercises,instructions,text,,Detailed instructions,
+tbl_exercises,media,text,,URL to video/image demonstration,
+tbl_exercises,active,boolean,DEFAULT true,Is exercise currently active,
+tbl_exercises,created_at,timestamptz,DEFAULT now(),Record creation timestamp,
