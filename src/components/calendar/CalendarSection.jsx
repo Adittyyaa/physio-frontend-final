@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { FiChevronLeft, FiChevronRight, FiCalendar, FiClock, FiUser } from 'react-icons/fi'
 import { SiGooglecalendar, SiApple } from 'react-icons/si'
+import { today } from '../../lib/utils'
 import toast from 'react-hot-toast'
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -160,7 +161,8 @@ export function CalendarSection() {
   }, [appointments])
 
   // Get appointments for selected date or today
-  const displayDate = selectedDate || new Date().toISOString().split('T')[0]
+  const todayStr = today()
+  const displayDate = selectedDate || todayStr
   const dayAppointments = appointmentsByDate[displayDate] || []
 
   // Calendar grid calculation
@@ -201,7 +203,7 @@ export function CalendarSection() {
     toast.success('Calendar file downloaded! Open it to add to Apple Calendar.')
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  const todayStr = today()
 
   return (
     <div className="p-4 max-w-7xl mx-auto">
@@ -245,7 +247,7 @@ export function CalendarSection() {
                 }
 
                 const isSelected = selectedDate === item.dateStr
-                const isToday = today === item.dateStr
+                const isToday = todayStr === item.dateStr
                 const hasApts = item.hasAppointments
 
                 return (

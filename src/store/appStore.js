@@ -274,7 +274,7 @@ export const useAppStore = create((set, get) => ({
       reps: exerciseData.reps || null,
       instructions: exerciseData.instructions || null,
       media: exerciseData.media || null,
-      user_id: authUser.id,
+      user_id: patientRow.user_id, // ✅ Use therapist's user_id, not patient's auth ID
       patient_id: patientRow.id,
       created_at: new Date().toISOString(),
     }
