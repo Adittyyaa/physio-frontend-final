@@ -30,10 +30,10 @@ export const useAppStore = create((set, get) => ({
     set({ dataLoading: true })
     try {
       const [pRes, aRes, sRes, eRes] = await Promise.all([
-        supabase.from('patients').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('appointments').select('*').eq('user_id', user.id).order('date', { ascending: true }),
-        supabase.from('sessions').select('*').eq('user_id', user.id).order('date', { ascending: false }),
-        supabase.from('exercises').select('*').eq('user_id', user.id).order('created_at', { ascending: true }),
+        supabase.from('tbl_patients').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('tbl_appointments').select('*').eq('user_id', user.id).order('date', { ascending: true }),
+        supabase.from('tbl_sessions').select('*').eq('user_id', user.id).order('date', { ascending: false }),
+        supabase.from('tbl_exercises').select('*').eq('user_id', user.id).order('created_at', { ascending: true }),
       ])
       const patients = pRes.data || []
       const exercises = eRes.data || []
@@ -41,7 +41,7 @@ export const useAppStore = create((set, get) => ({
       // Seed default exercises if user has none
       if (exercises.length === 0) {
         const seeded = DEFAULT_EXERCISES.map((e) => ({ ...e, user_id: user.id }))
-        const { data: insertedExercises } = await supabase.from('exercises').insert(seeded).select()
+        const { data: insertedExercises } = await supabase.from('tbl_exercises').insert(seeded).select()
         set({
           patients,
           appointments: aRes.data || [],
@@ -71,7 +71,7 @@ export const useAppStore = create((set, get) => ({
       if (!user) throw new Error('Not authenticated')
 
       const { data: patientRow, error: patientError } = await supabase
-        .from('patients')
+        .from('tbl_patients')
         .select('*')
         .eq('patient_auth_id', user.id)
         .maybeSingle()
@@ -90,9 +90,9 @@ export const useAppStore = create((set, get) => ({
       console.log('Patient found:', patientRow.id, '| therapist user_id:', patientRow.user_id)
 
       const [aRes, sRes, eRes] = await Promise.all([
-        supabase.from('appointments').select('*').eq('patient_id', patientRow.id).order('date', { ascending: true }),
-        supabase.from('sessions').select('*').eq('patient_id', patientRow.id).order('date', { ascending: false }),
-        supabase.from('exercises').select('*').eq('patient_id', patientRow.id).order('created_at', { ascending: true }),
+        supabase.from('tbl_appointments').select('*').eq('patient_id', patientRow.id).order('date', { ascending: true }),
+        supabase.from('tbl_sessions').select('*').eq('patient_id', patientRow.id).order('date', { ascending: false }),
+        supabase.from('tbl_exercises').select('*').eq('patient_id', patientRow.id).order('created_at', { ascending: true }),
       ])
 
       console.log('Appointments fetched:', aRes.data?.length, aRes.error)
@@ -119,11 +119,11 @@ export const useAppStore = create((set, get) => ({
 
     let record = makeRecord(data?.id || patientCode4())
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      let { error } = await supabase.from('patients').insert(record)
+      let { error } = await supabase.from('tbl_patients').insert(record)
       if (error && (String(error.message || '').includes('patient_email') || String(error.details || '').includes('patient_email'))) {
         const { patient_email, ...rest } = record
         record = rest
-        ;({ error } = await supabase.from('patients').insert(record))
+        ;({ error } = await supabase.from('tbl_patients').insert(record))
       }
       if (!error) {
         set((s) => ({ patients: [record, ...s.patients] }))
@@ -143,10 +143,10 @@ export const useAppStore = create((set, get) => ({
   },
 
   updatePatient: async (id, data) => {
-    let { error } = await supabase.from('patients').update(data).eq('id', id)
+    let { error } = await supabase.from('tbl_patients').update(data).eq('id', id)
     if (error && (String(error.message || '').includes('patient_email') || String(error.details || '').includes('patient_email'))) {
       const { patient_email, ...rest } = data || {}
-      ;({ error } = await supabase.from('patients').update(rest).eq('id', id))
+      ;({ error } = await supabase.from('tbl_patients').update(rest).eq('id', id))
     }
     if (error) { toast.error('Failed to update patient'); return false }
     set((s) => ({ patients: s.patients.map((p) => (p.id === id ? { ...p, ...data } : p)) }))
@@ -155,10 +155,10 @@ export const useAppStore = create((set, get) => ({
   },
 
   deletePatient: async (id) => {
-    const { error } = await supabase.from('patients').delete().eq('id', id)
+    const { error } = await supabase.from('tbl_patients').delete().eq('id', id)
     if (error) { toast.error('Failed to delete patient'); return false }
-    await supabase.from('appointments').delete().eq('patient_id', id)
-    await supabase.from('sessions').delete().eq('patient_id', id)
+    await supabase.from('tbl_appointments').delete().eq('patient_id', id)
+    await supabase.from('tbl_sessions').delete().eq('patient_id', id)
     set((s) => ({
       patients: s.patients.filter((p) => p.id !== id),
       appointments: s.appointments.filter((a) => a.patient_id !== id),
@@ -172,7 +172,7 @@ export const useAppStore = create((set, get) => ({
   addAppointment: async (data) => {
     const { user } = get()
     const record = { ...data, id: uid(), user_id: user.id, created_at: new Date().toISOString() }
-    const { error } = await supabase.from('appointments').insert(record)
+    const { error } = await supabase.from('tbl_appointments').insert(record)
     if (error) { toast.error('Failed to book appointment'); return false }
     set((s) => ({ appointments: [...s.appointments, record].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)) }))
     toast.success('Appointment booked')
@@ -180,14 +180,14 @@ export const useAppStore = create((set, get) => ({
   },
 
   updateAppointment: async (id, data) => {
-    const { error } = await supabase.from('appointments').update(data).eq('id', id)
+    const { error } = await supabase.from('tbl_appointments').update(data).eq('id', id)
     if (error) { toast.error('Failed to update appointment'); return false }
     set((s) => ({ appointments: s.appointments.map((a) => (a.id === id ? { ...a, ...data } : a)) }))
     return true
   },
 
   updateAppointmentStatus: async (id, status) => {
-    const { error } = await supabase.from('appointments').update({ status }).eq('id', id)
+    const { error } = await supabase.from('tbl_appointments').update({ status }).eq('id', id)
     if (error) { toast.error('Failed to update status'); return false }
     set((s) => ({ appointments: s.appointments.map((a) => (a.id === id ? { ...a, status } : a)) }))
     const msg = status === 'completed' ? 'Marked complete ✓' : status === 'cancelled' ? 'Appointment cancelled' : 'Status updated'
@@ -199,7 +199,7 @@ export const useAppStore = create((set, get) => ({
   addSession: async (data) => {
     const { user } = get()
     const record = { ...data, id: uid(), user_id: user.id, created_at: new Date().toISOString() }
-    const { error } = await supabase.from('sessions').insert(record)
+    const { error } = await supabase.from('tbl_sessions').insert(record)
     if (error) { toast.error('Failed to save session'); return false }
     set((s) => ({ sessions: [record, ...s.sessions] }))
     toast.success('Session logged')
@@ -210,7 +210,7 @@ export const useAppStore = create((set, get) => ({
   addExercise: async (data) => {
     const { user } = get()
     const record = { ...data, id: uid(), user_id: user.id, created_at: new Date().toISOString() }
-    const { error } = await supabase.from('exercises').insert(record)
+    const { error } = await supabase.from('tbl_exercises').insert(record)
     if (error) { toast.error('Failed to add exercise'); return false }
     set((s) => ({ exercises: [...s.exercises, record] }))
     toast.success('Exercise added to library')
@@ -226,7 +226,7 @@ export const useAppStore = create((set, get) => ({
       patient_id: patientId,
       created_at: new Date().toISOString(),
     }
-    const { error } = await supabase.from('exercises').insert(record)
+    const { error } = await supabase.from('tbl_exercises').insert(record)
     if (error) { toast.error('Failed to assign exercise'); return false }
     set((s) => ({ exercises: [...s.exercises, record] }))
     toast.success('Exercise assigned to patient')
@@ -234,7 +234,7 @@ export const useAppStore = create((set, get) => ({
   },
 
   removeAssignedExercise: async (id) => {
-    const { error } = await supabase.from('exercises').delete().eq('id', id)
+    const { error } = await supabase.from('tbl_exercises').delete().eq('id', id)
     if (error) { toast.error('Failed to remove exercise'); return false }
     set((s) => ({ exercises: s.exercises.filter((e) => e.id !== id) }))
     toast.success('Exercise removed')
@@ -282,7 +282,7 @@ export const useAppStore = create((set, get) => ({
     // Optimistically update UI first
     set((s) => ({ exercises: [...s.exercises, { ...record, active: true }] }))
 
-    const { error } = await supabase.from('exercises').insert(record)
+    const { error } = await supabase.from('tbl_exercises').insert(record)
 
     if (error) {
       console.error('Add exercise error:', error)
@@ -301,7 +301,7 @@ export const useAppStore = create((set, get) => ({
     const { exercises: prev } = get()
     set((s) => ({ exercises: s.exercises.filter((e) => e.id !== id) }))
 
-    const { error } = await supabase.from('exercises').delete().eq('id', id)
+    const { error } = await supabase.from('tbl_exercises').delete().eq('id', id)
     if (error) {
       console.error('Remove exercise error:', error)
       // Revert on failure
@@ -334,7 +334,7 @@ export const useAppStore = create((set, get) => ({
     // Try to persist to Supabase — if it fails (e.g. column doesn't exist yet),
     // keep the local state change so the UI still works
     try {
-      const { error } = await supabase.from('exercises').update({ active: newActive }).eq('id', id)
+      const { error } = await supabase.from('tbl_exercises').update({ active: newActive }).eq('id', id)
       if (error) {
         console.warn('Could not persist active status to database:', error.message)
       }

@@ -16,6 +16,7 @@ import { PatientsSection } from './components/patients/PatientsSection'
 import { AppointmentsSection } from './components/appointments/AppointmentsSection'
 import { SessionsSection } from './components/sessions/SessionsSection'
 import { ExercisesSection } from './components/exercises/ExercisesSection'
+import { CalendarSection } from './components/calendar/CalendarSection'
 import { StatsModal } from './components/modals/StatsModal'
 
 import { PatientFormModal } from './components/patients/PatientFormModal'
@@ -141,6 +142,7 @@ export default function App() {
           {activeTab === 'patients' && (
             <PatientsSection onLogSession={handleLogSession} onBookAppt={handleBookAppt} />
           )}
+          {activeTab === 'calendar' && <CalendarSection />}
           {activeTab === 'appointments' && (
             <AppointmentsSection
               prePatientId={apptPrePatient}

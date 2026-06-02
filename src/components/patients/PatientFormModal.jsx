@@ -47,7 +47,7 @@ async function createPatientAuthUser(email, password, patientId) {
 
   // Link the auth user to the patient row
   const { error: linkError } = await supabase
-    .from('patients')
+    .from('tbl_patients')
     .update({ patient_auth_id: newUserId, patient_email: email })
     .eq('id', patientId)
 

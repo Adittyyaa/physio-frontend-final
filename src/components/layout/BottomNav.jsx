@@ -1,9 +1,11 @@
 import React from 'react'
 import { FiUsers, FiCalendar, FiClipboard } from 'react-icons/fi'
 import { GiMuscleUp } from 'react-icons/gi'
+import { BsCalendar3 } from 'react-icons/bs'
 
 const NAV_ITEMS = [
   { id: 'patients', icon: FiUsers, label: 'Patients' },
+  { id: 'calendar', icon: BsCalendar3, label: 'Calendar' },
   { id: 'appointments', icon: FiCalendar, label: 'Schedule' },
   { id: 'sessions', icon: FiClipboard, label: 'Sessions' },
   { id: 'exercises', icon: GiMuscleUp, label: 'Exercises' },
